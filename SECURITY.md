@@ -2,7 +2,7 @@
 
 ## Report a problem
 
-If you find a way to read another business's data, send a reminder without approval, or see a key or personal data in this repository, tell the Scrum Master and the Dev lead at once in the team chat (codes and links only, no data). Set the repository variable `JOBS_ENABLED` to `false` if scheduled jobs could make it worse. Record what happened and what was done in the decision log.
+If you find a way to read another business's data, send a reminder without approval, or see a key or personal data in this repository, tell the Scrum Master and the Dev lead at once in the team chat (codes and links only, no data). Set the repository variable `JOBS_ENABLED` to `false` if scheduled jobs could make it worse. If real business data may be affected, tell the tutor the same day. Record what happened and what was done in the decision log.
 
 ## Secrets
 

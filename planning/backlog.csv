@@ -31,7 +31,7 @@ FR-20,Verify the last reminder date starts the cool-down,requirement,Must,S,1,Sc
 FR-21,Activity log screen with filters (UI-10),requirement,Must,M,4,Scrum Master,Sprint 2,FR-01,PRD FR-21,To do,web
 UI-07,"Invoices: every open invoice with its derived status, search and filter",screen,Must,M,5,Product Owner,Demo week,FR-01,PRD UI-07; BR-06,To do,web
 UI-09,Clients: fix a missing or wrong email,screen,Must,M,4,Product Owner,Sprint 2,FR-01,PRD UI-09; FR-10,To do,web
-FR-03,Export every record as CSV files; delete everything after typing the business name (UI-11),requirement,Must,M,4,Dev lead,Demo week,FR-02,PRD FR-03; NFR-03,To do,web
+FR-03,Export every record as CSV files; delete everything after typing the business name (UI-11),requirement,Must,M,4,Dev lead,Demo week,FR-02,"PRD FR-03; NFR-03; cells starting with =, +, -, @ or a tab are prefixed with an apostrophe in CSV files",To do,web
 QA-01,"Acceptance tests AT-01 to AT-10: steps, results, dates and evidence in the DEL-08 test log",quality,Must,M,6,Scrum Master,Sprint 2,FR-18,DEL-08 section 6,To do,quality
 QA-02,Cold-user test on Fri 23 Oct 2026: a teammate's contact imports and reviews without help,quality,Must,S,3,Scrum Master,Sprint 2,FR-18,NFR-12,To do,quality
 QA-03,"End-to-end on the dev project: import, weekly run by hand, briefing, review, send and log",quality,Must,S,2,Dev lead,Sprint 2,FR-18,Design Requirements v0.1 section 14,To do,quality

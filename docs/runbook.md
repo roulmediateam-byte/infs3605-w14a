@@ -6,7 +6,7 @@ How to set up, run and recover the service. Every step uses Test data unless an 
 
 1. Create two Supabase projects in the Sydney region (ap-southeast-2, NFR-17): `getpaid-dev` (Test data only) and `getpaid-pilot` (owner testing). The free plan allows two active projects.
 2. Link and push the schema: `supabase link --project-ref <ref>` then `supabase db push`. Do not run `seed.sql` on the pilot project.
-3. In Authentication: turn off new sign-ups; set the one-time link expiry to 3,600 seconds (FR-01, NFR-07); set the site URL to the GitHub Pages address; set custom SMTP to Resend (the built-in sender allows only 2 emails an hour).
+3. In Authentication: turn off new sign-ups; set the one-time link expiry to 3,600 seconds (FR-01, NFR-07); set the site URL to the GitHub Pages address; set custom SMTP to Resend (the built-in sender allows only 2 emails an hour); edit the magic-link email template so it carries both the link (`{{ .ConfirmationURL }}`) and the 6-digit code (`{{ .Token }}`), because phones often open links in an email app's own browser.
 4. In Resend: add the sending domain and publish its SPF, DKIM and DMARC records (NFR-18). Send a test briefing to Gmail and Outlook and check it lands in the inbox.
 5. In the Claude Console: create an API key and set a monthly spending limit (proposed A$20, NFR-15).
 6. In GitHub, Settings > Secrets and variables > Actions:

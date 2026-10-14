@@ -27,7 +27,7 @@ The web app and the jobs call these functions through Supabase (`supabase.rpc('n
 | `get_briefing(p_business_id, p_as_of?)` | Owner, checker, admin (test data) | The Home screen briefing; the same function as the email (AT-06) | JSON |
 | `get_trust_summary(p_business_id, p_as_of?)` | Owner, checker, admin (test data) | FR-22 | JSON |
 | `log_review_session(p_business_id, p_stats)` | Owner, checker | FR-19 and the review-time metric; numbers only | nothing |
-| `export_business_data(p_business_id)` | Owner | FR-03; every record as JSON for CSV download | JSON |
+| `export_business_data(p_business_id)` | Owner | FR-03; every record as JSON for CSV download. When writing the CSV files, prefix any cell that starts with =, +, -, @ or a tab with an apostrophe, so a spreadsheet never runs it as a formula | JSON |
 | `delete_business(p_business_id, p_confirm_name)` | Owner | FR-03; deletes everything after the name is typed | `{deleted, receipt_id, row_counts}` |
 
 Errors to handle in the interface:

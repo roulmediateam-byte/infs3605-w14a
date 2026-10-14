@@ -99,7 +99,7 @@ export function renderBriefing(briefing: Briefing, appUrl: string): RenderedEmai
   if (briefing.paused_clients.length > 0) {
     lines.push(`Paused: ${briefing.paused_clients.map((client) => `${client.name} (${formatAud(client.overdue_cents)} overdue)`).join('; ')}`, '');
   }
-  lines.push('Get-Paid Apprentice. Every reminder waits for your approval.');
+  lines.push('Get-Paid Apprentice. Every reminder waits for your approval. Change the briefing day or time in Settings.');
   const text = lines.join('\n');
 
   return { subject, text, html: toHtml(subject, text, briefing.drafts_waiting > 0 ? { label: 'Review drafts', url: reviewUrl } : null) };

@@ -52,6 +52,7 @@ Scheduled jobs use the service role and may call only `job_*` functions. Team ad
 | Leaked keys | A key committed to the repository | Keys only in Actions secrets; hygiene check in CI | `scripts/check-hygiene.sh` |
 | Shell injection from the "Run workflow" form | A crafted business id | Inputs passed as environment variables and validated as UUIDs | job unit tests |
 | Duplicate emails to the owner | A job retried after sending | Run claims per period; Resend idempotency keys | 070, job unit tests |
+| Formula injection in exports | A client name such as =HYPERLINK(...) runs when the CSV is opened | The app prefixes cells starting with =, +, -, @ or a tab with an apostrophe | FR-03 acceptance test |
 | Data kept too long | Testing ends but data stays | `delete_after` required for real data; daily purge; everything deleted from Thu 31 Dec 2026 | 070 |
 
 ## Secrets

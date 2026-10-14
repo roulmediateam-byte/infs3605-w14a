@@ -4,7 +4,7 @@ Four kinds of automated test guard the behaviour that matters most: nothing is s
 
 | Suite | What it proves | How to run | Where it runs |
 | --- | --- | --- | --- |
-| Database (pgTAP), 233 tests in 8 files | Business rules BR-01 to BR-15, acceptance tests AT-01 to AT-10, permissions, row-level security, the append-only log, retention, and the security conventions | `supabase test db`, or `scripts/test-local.sh` without Docker | Every pull request (CI) |
+| Database (pgTAP), 235 tests in 8 files | Business rules BR-01 to BR-15, acceptance tests AT-01 to AT-10, permissions, row-level security, the append-only log, retention, and the security conventions | `supabase test db`, or `scripts/test-local.sh` without Docker | Every pull request (CI) |
 | Job code (Node), 31 tests | The AI request holds only five fields (AI-03); one retry then the template (AI-07); emails render correctly; jobs record success and failure | `npm test` | Every pull request (CI) |
 | End-to-end (local) | The job code and the database agree on every function, argument and result; a weekly run and a briefing work start to finish | `scripts/test-local.sh` runs it last | Locally, before merging job or schema changes |
 | Prompt evaluation, 30 cases | Real model replies pass AI-06 across 3 tones and 10 situations; a teammate reads 10 for tone | `npm run eval:prompt` | Pull requests that change `prompts/` |

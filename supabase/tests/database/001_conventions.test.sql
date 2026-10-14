@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(18);
+select plan(20);
 
 select is_empty($$
   select c.relname::text from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -77,6 +77,20 @@ select is_empty($$
   select c.relname::text from pg_class c join pg_namespace n on n.oid = c.relnamespace
   where n.nspname = 'public' and c.relkind = 'v' and not coalesce(c.reloptions @> array['security_invoker=true'], false)
 $$, 'Every view obeys the caller''s row-level security (security_invoker)');
+
+-- Supabase advises against security definer functions in exposed schemas, because the API can call them with the
+-- owner's rights. Ours are the API, so each must check the caller before anything else (ADR 0003).
+select is_empty($$
+  select p.proname::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.prosecdef and p.proname not like 'job\_%'
+    and p.prosrc !~ 'private\.require_role\(' and p.prosrc !~ '\(select auth\.uid\(\)\)'
+$$, 'Every exposed security definer function checks the caller''s role or identity first');
+
+select is_empty($$
+  select p.proname::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.prosecdef and p.proname like 'job\_%'
+    and (has_function_privilege('authenticated', p.oid, 'execute') or has_function_privilege('anon', p.oid, 'execute'))
+$$, 'Job functions, which do not check a person, are closed to everyone but the service role');
 
 select col_type_is('public', 'invoices', 'amount_due_cents', 'bigint', 'Money is stored as whole cents (BR-14)');
 select hasnt_column('public', 'invoices', 'is_overdue', '"Overdue" is calculated, never stored (BR-06)');

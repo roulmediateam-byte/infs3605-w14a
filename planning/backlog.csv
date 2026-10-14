@@ -7,7 +7,7 @@ SET-05,Claude API key with a spending cap (proposed A$20 a month),setup,Must,S,1
 SET-06,"Protect main: pull request, one review and green CI before merging",setup,Must,S,1,Scrum Master,Sprint 1,SET-01,NFR-08,To do,ops
 SET-07,"Board with Backlog, This sprint, In progress, In review, Done; run scripts/bootstrap-github.sh",setup,Must,S,1,Scrum Master,Sprint 1,SET-01,DEL-07 section 3,To do,ops
 SET-08,"Web app scaffold: React, Vite and TypeScript installable web app on GitHub Pages, with routing, Supabase client and design tokens",setup,Must,M,8,UX lead,Sprint 1,SET-02,NFR-14; NFR-16; UI design brief section 'Tokens',To do,web
-BE-01,"Review the database schema, row-level security and functions (233 pgTAP tests)",setup,Must,M,3,Dev lead,Sprint 1,SET-01,docs/data-model.md; docs/security-model.md,In review,db
+BE-01,"Review the database schema, row-level security and functions (235 pgTAP tests)",setup,Must,M,3,Dev lead,Sprint 1,SET-01,docs/data-model.md; docs/security-model.md,In review,db
 BE-02,"Review the scheduled jobs, workflows and prompt v1 (31 unit tests)",setup,Must,S,2,Dev 2 (jobs and AI),Sprint 1,SET-01,docs/runbook.md; prompts/,In review,jobs
 FR-01,Sign in with a one-time email link (UI-01),requirement,Must,S,4,Dev lead,Sprint 1,SET-08,PRD FR-01; AT-09,To do,web
 FR-02,"Settings: business details, threshold, briefing day and time, checker (UI-11)",requirement,Must,M,6,UX lead,Sprint 2,FR-01,PRD FR-02,To do,web

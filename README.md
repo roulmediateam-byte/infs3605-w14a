@@ -2,7 +2,7 @@
 
 Get-Paid Apprentice drafts payment reminders in the owner's voice and a Monday briefing for small construction businesses, and nothing reaches a client until the owner or a named checker approves it. This repository holds the database, the scheduled jobs, the AI prompt and the plan for the proof of concept (PoC) built by Team W14A-5 for INFS3605 at UNSW, Term 3 2026.
 
-**Status, Thu 15 Oct 2026:** the backend is built and tested (233 database tests, 31 job tests, an end-to-end check). The web app is next (sprint 1 and 2; see `planning/backlog.csv`). All data in this repository is synthetic and labelled "Test data".
+**Status, Thu 15 Oct 2026:** the backend is built and tested (235 database tests, 31 job tests, an end-to-end check). The web app is next (sprint 1 and 2; see `planning/backlog.csv`). All data in this repository is synthetic and labelled "Test data".
 
 ## How it works
 
@@ -47,7 +47,7 @@ npm test                    # type check and the 31 job tests
 
 # With the Supabase CLI and Docker
 supabase start              # local stack with the migrations and the Test data seed
-supabase test db            # the 233 database tests
+supabase test db            # the 235 database tests
 
 # Without Docker (any PostgreSQL 15+ with pgTAP)
 PGHOST=localhost PGUSER=postgres scripts/test-local.sh   # migrations, seed, database tests, then the end-to-end check

@@ -13,3 +13,5 @@ Signed-in users get SELECT on tables, filtered by row-level security. Every writ
 ## Consequences
 
 The log cannot miss an action, because the action and its log entry commit together. Business rules live in one place, tested by pgTAP. The browser cannot bypass a rule by writing to a table. The cost is more SQL to write; the conventions test (001) keeps new functions in line.
+
+Supabase's guidance is never to put security definer functions in an exposed schema, because the API can call them with the owner's rights. That guidance protects helpers that do not check who is calling, such as the lookups used inside policies; ours live in the unexposed private schema. The functions in public are the API on purpose, so each one checks the caller's role (private.require_role) or identity before doing anything, anon cannot execute any of them, and job functions are open to the service role only. Test 001 fails the build if a new exposed function skips the check.

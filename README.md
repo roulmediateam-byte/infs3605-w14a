@@ -2,7 +2,9 @@
 
 Get-Paid Apprentice drafts payment reminders in the owner's voice and a Monday briefing for small construction businesses, and nothing reaches a client until the owner or a named checker approves it. This repository holds the database, the scheduled jobs, the AI prompt and the plan for the proof of concept (PoC) built by Team W14A-5 for INFS3605 at UNSW, Term 3 2026.
 
-**Status, Thu 15 Oct 2026:** the backend is built and tested (235 database tests, 31 job tests, an end-to-end check). The web app is next (sprint 1 and 2; see `planning/backlog.csv`). All data in this repository is synthetic and labelled "Test data".
+**Status, Thu 15 Oct 2026:** the backend is built and tested (235 database tests, 33 job tests, an end-to-end check). The web app is next (sprint 1 and 2; see `planning/backlog.csv`). All data in this repository is synthetic and labelled "Test data".
+
+**Product documents** (Claude Docs in Adam's account; ask him to share them with you): [PRD](https://claude.ai/code/artifact/4d00db9a-df6a-4d9d-b8a2-e030d57a5adf) for what and why, [TRD](https://claude.ai/code/artifact/7d113434-7532-4f15-8727-e2046bee1ecd) for how it is built, [App Flow](https://claude.ai/code/artifact/652cbc3c-237c-4b00-bdfa-624ca2eb94c1) for every journey and state, [UI design brief](https://claude.ai/code/artifact/1b7ffba8-ce51-4ce3-814f-a063abf0b3d2) for the look, words and accessibility, and [Implementation plan](https://claude.ai/code/artifact/023fe09a-0811-4956-9b94-19c9fe6e43ac) for who builds what, when.
 
 ## How it works
 

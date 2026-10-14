@@ -69,7 +69,7 @@ export function renderBriefing(briefing: Briefing, appUrl: string): RenderedEmai
     ? `${prefix}This week: nothing to chase`
     : `${prefix}This week: ${formatAud(briefing.totals.overdue_cents)} overdue, ${plural(briefing.drafts_waiting, 'reminder', 'reminders')} to review`;
 
-  const lines: string[] = [`Good morning ${firstName},`, ''];
+  const lines: string[] = [`Hi ${firstName},`, ''];
   if (nothingOverdue) {
     lines.push('Nothing to chase this week. Your apprentice checked every open invoice.', '');
   }
@@ -102,7 +102,11 @@ export function renderBriefing(briefing: Briefing, appUrl: string): RenderedEmai
   lines.push('Get-Paid Apprentice. Every reminder waits for your approval. Change the briefing day or time in Settings.');
   const text = lines.join('\n');
 
-  return { subject, text, html: toHtml(subject, text, briefing.drafts_waiting > 0 ? { label: 'Review drafts', url: reviewUrl } : null) };
+  return {
+    subject,
+    text,
+    html: toHtml(subject, text, briefing.drafts_waiting > 0 ? { label: 'Review drafts', url: reviewUrl } : null, PREVIEW_TEXT),
+  };
 }
 
 export function renderNudge(
@@ -122,7 +126,7 @@ export function renderNudge(
     '',
     'Get-Paid Apprentice. You get this email once a week at most.',
   ].join('\n');
-  return { subject, text, html: toHtml(subject, text, { label: 'Review drafts', url: `${appUrl}/review` }) };
+  return { subject, text, html: toHtml(subject, text, { label: 'Review drafts', url: `${appUrl}/review` }, PREVIEW_TEXT) };
 }
 
 function describe(invoice: BriefingInvoice): string {
@@ -138,7 +142,10 @@ function describe(invoice: BriefingInvoice): string {
 
 // A plain, accessible HTML version of the text: one column, 16px text, a single button, no images.
 // Lines starting with "- " become list items; the "Review drafts: <link>" line becomes the button.
-function toHtml(title: string, text: string, button: { label: string; url: string } | null): string {
+// Shown by email apps beside the subject (UI design brief, "The emails"); hidden in the body itself.
+export const PREVIEW_TEXT = 'Nothing is sent until you approve it.';
+
+function toHtml(title: string, text: string, button: { label: string; url: string } | null, preview: string): string {
   const blocks = text
     .split('\n\n')
     .map((block) => {
@@ -154,12 +161,13 @@ function toHtml(title: string, text: string, button: { label: string; url: strin
     })
     .join('');
   const action = button
-    ? `<p style="margin:0 0 24px"><a href="${escapeHtml(button.url)}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:8px">${escapeHtml(button.label)}</a></p>`
+    ? `<p style="margin:0 0 24px"><a href="${escapeHtml(button.url)}" style="display:inline-block;background:#1f4fd1;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:8px">${escapeHtml(button.label)}</a></p>`
     : '';
   return [
     '<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">',
     `<title>${escapeHtml(title)}</title></head>`,
-    '<body style="margin:0;padding:24px;background:#ffffff;color:#111827;font:16px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">',
-    `<div style="max-width:560px;margin:0 auto">${blocks}${action}</div></body></html>`,
+    '<body style="margin:0;padding:24px;background:#ffffff;color:#14181f;font:16px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">',
+    `<div style="display:none;max-height:0;overflow:hidden">${escapeHtml(preview)}</div>`,
+    `<div style="max-width:600px;margin:0 auto">${blocks}${action}</div></body></html>`,
   ].join('');
 }

@@ -60,6 +60,15 @@ describe('EM-01: the Monday briefing email', () => {
     const real = renderBriefing({ ...briefing, business: { ...briefing.business, is_test_data: false } }, 'https://app.example');
     assert.doesNotMatch(real.subject, /Test data/);
   });
+  it('greets by first name without a time of day, because the briefing may come at 6:00 pm', () => {
+    assert.match(email.text, /^Hi Alex,/);
+    assert.doesNotMatch(email.text, /Good morning/);
+  });
+  it('carries the preview text first in the HTML body, and the design brief colours', () => {
+    assert.match(email.html, /<body[^>]*><div style="display:none;max-height:0;overflow:hidden">Nothing is sent until you approve it\.<\/div>/);
+    assert.match(email.html, /background:#1f4fd1/);
+    assert.match(email.html, /max-width:600px/);
+  });
 });
 
 describe('EM-02: the checker nudge', () => {

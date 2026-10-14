@@ -6,18 +6,19 @@ SET-04,"Resend account and a sending domain with SPF, DKIM and DMARC",setup,Must
 SET-05,Claude API key with a spending cap (proposed A$20 a month),setup,Must,S,1,Dev 2 (jobs and AI),Sprint 1,,NFR-15; AI-10,To do,ai
 SET-06,"Protect main: pull request, one review and green CI before merging",setup,Must,S,1,Scrum Master,Sprint 1,SET-01,NFR-08,To do,ops
 SET-07,"Board with Backlog, This sprint, In progress, In review, Done; run scripts/bootstrap-github.sh",setup,Must,S,1,Scrum Master,Sprint 1,SET-01,DEL-07 section 3,To do,ops
-SET-08,"Web app scaffold: React, Vite and TypeScript installable web app on GitHub Pages, with routing, Supabase client and design tokens",setup,Must,M,8,UX lead,Sprint 1,SET-02,NFR-14; NFR-16; UI design brief section 'Tokens',To do,web
+SET-08,"Web app scaffold: React, Vite and TypeScript installable web app on GitHub Pages, with routing, Supabase client and design tokens",setup,Must,M,8,UX lead,Sprint 1,SET-02,NFR-14; NFR-16; UI design brief section 'Foundations',To do,web
+UX-02,"Build-ready designs for Review, Home and Send on phone and computer, from the UI design brief's wireframes and tokens",screen,Must,M,5,UX lead,Sprint 1,,UI design brief: Deliverables and dates (due Mon 19 Oct 2026),To do,web
 BE-01,"Review the database schema, row-level security and functions (235 pgTAP tests)",setup,Must,M,3,Dev lead,Sprint 1,SET-01,docs/data-model.md; docs/security-model.md,In review,db
-BE-02,"Review the scheduled jobs, workflows and prompt v1 (31 unit tests)",setup,Must,S,2,Dev 2 (jobs and AI),Sprint 1,SET-01,docs/runbook.md; prompts/,In review,jobs
-FR-01,Sign in with a one-time email link (UI-01),requirement,Must,S,4,Dev lead,Sprint 1,SET-08,PRD FR-01; AT-09,To do,web
-FR-02,"Settings: business details, threshold, briefing day and time, checker (UI-11)",requirement,Must,M,6,UX lead,Sprint 2,FR-01,PRD FR-02,To do,web
+BE-02,"Review the scheduled jobs, workflows and prompt v1 (33 unit tests)",setup,Must,S,2,Dev 2 (jobs and AI),Sprint 1,SET-01,docs/runbook.md; prompts/,In review,jobs
+FR-01,Sign in with a one-time email link (UI-01),requirement,Must,S,4,Product Owner,Sprint 1,SET-08,PRD FR-01; AT-09,To do,web
+FR-02,"Settings: business details, threshold, briefing day and time, checker (UI-11)",requirement,Must,M,6,Dev lead,Demo week,FR-01,PRD FR-02,To do,web
 FR-04,"Upload a CSV, map columns once, preview 10 rows (UI-08)",requirement,Must,M,8,Dev 2 (jobs and AI),Sprint 1,FR-01,PRD FR-04,To do,web
 FR-05,"Check before saving: counts, totals and the rows skipped with reasons (UI-08)",requirement,Must,M,5,Dev 2 (jobs and AI),Sprint 2,FR-04,PRD FR-05; BR-15,To do,web
 FR-06,"Show the import result: added, updated, closed and flagged (UI-08)",requirement,Must,S,2,Dev 2 (jobs and AI),Sprint 2,FR-05,PRD FR-06; AT-03; BR-03,To do,web
 FR-07,Turn on the Sunday 9:00 pm weekly run on the dev project and run it by hand once,requirement,Must,S,2,Scrum Master,Sprint 1,SET-03,PRD FR-07; AT-04; AT-08,To do,jobs
 FR-09,Confirm the template fallback works with the AI switched off,requirement,Must,S,1,Dev 2 (jobs and AI),Sprint 2,FR-07,PRD FR-09; AI-07,To do,jobs
 FR-08,"AI drafting live: key set, prompt evaluation passes 30 of 30",requirement,Must,M,4,Dev 2 (jobs and AI),Sprint 2,SET-05,PRD FR-08; AI-01 to AI-10,To do,ai
-FR-10,"Needs attention on Home: missing emails and changed amounts, each with its fix",requirement,Must,S,3,Dev lead,Sprint 2,FR-13,PRD FR-10; BR-05,To do,web
+FR-10,"Needs attention on Home: missing emails and changed amounts, each with its fix",requirement,Must,S,3,Product Owner,Sprint 2,FR-13,PRD FR-10; BR-05,To do,web
 FR-11,Monday briefing email live from the authenticated domain; checked in Gmail and Outlook on a phone (EM-01),requirement,Must,M,4,Dev 2 (jobs and AI),Sprint 2,SET-04,PRD FR-11; AT-10; NFR-18,To do,jobs
 FR-12,Verify totals equal the invoice list on Home and in the email,requirement,Must,S,1,Scrum Master,Sprint 2,FR-13,PRD FR-12; AT-06,To do,quality
 FR-13,"Home: this week's briefing, updated after every import, approval and payment (UI-02)",requirement,Must,L,10,UX lead,Sprint 2,FR-01,PRD FR-13,To do,web
@@ -30,11 +31,13 @@ FR-19,"Session summary after a review, for example 3 sent, 1 rejected, 1 waiting
 FR-20,Verify the last reminder date starts the cool-down,requirement,Must,S,1,Scrum Master,Sprint 2,FR-18,PRD FR-20; AT-05,To do,quality
 FR-21,Activity log screen with filters (UI-10),requirement,Must,M,4,Scrum Master,Sprint 2,FR-01,PRD FR-21,To do,web
 UI-07,"Invoices: every open invoice with its derived status, search and filter",screen,Must,M,5,Product Owner,Demo week,FR-01,PRD UI-07; BR-06,To do,web
-UI-09,Clients: fix a missing or wrong email,screen,Must,M,4,Product Owner,Sprint 2,FR-01,PRD UI-09; FR-10,To do,web
+UI-09,Clients: fix a missing or wrong email,screen,Must,M,4,Scrum Master,Demo week,FR-01,PRD UI-09; FR-10,To do,web
 FR-03,Export every record as CSV files; delete everything after typing the business name (UI-11),requirement,Must,M,4,Dev lead,Demo week,FR-02,"PRD FR-03; NFR-03; cells starting with =, +, -, @ or a tab are prefixed with an apostrophe in CSV files",To do,web
 QA-01,"Acceptance tests AT-01 to AT-10: steps, results, dates and evidence in the DEL-08 test log",quality,Must,M,6,Scrum Master,Sprint 2,FR-18,DEL-08 section 6,To do,quality
 QA-02,Cold-user test on Fri 23 Oct 2026: a teammate's contact imports and reviews without help,quality,Must,S,3,Scrum Master,Sprint 2,FR-18,NFR-12,To do,quality
 QA-03,"End-to-end on the dev project: import, weekly run by hand, briefing, review, send and log",quality,Must,S,2,Dev lead,Sprint 2,FR-18,Design Requirements v0.1 section 14,To do,quality
+UX-03,"Remaining screens, both emails and the copy deck",screen,Must,M,5,UX lead,Sprint 2,UX-02,UI design brief: Deliverables and dates (due Wed 21 Oct 2026),To do,web
+UX-04,Design review of every built screen before the cold-user test,quality,Must,S,2,UX lead,Sprint 2,UX-03,UI design brief: Handoff and review (Thu 22 Oct 2026),To do,quality
 QA-04,Accessibility pass: automated checker on every screen; keyboard and screen reader on Home and Review,quality,Must,M,5,UX lead,Demo week,FR-14,NFR-13; WCAG 2.2 AA,To do,quality
 QA-05,Performance: screens under 2 seconds on a 4G phone; weekly run of 500 invoices under 10 minutes,quality,Must,S,2,Dev 2 (jobs and AI),Demo week,FR-08,NFR-11,To do,quality
 FR-25,"Checker approval, invitation and the noon nudge (EM-02)",requirement,Should,M,6,Dev 2 (jobs and AI),Demo week,QA-01,PRD FR-25; BR-12,To do,web
@@ -42,6 +45,7 @@ FR-24,"Mark paid, with undo (UI-07)",requirement,Should,S,3,Product Owner,Demo w
 FR-23,"Tone per client, changed in one tap (UI-09, UI-03)",requirement,Should,S,3,UX lead,Demo week,QA-01,PRD FR-23,To do,web
 FR-26,Pause a client (UI-09),requirement,Should,S,2,UX lead,Demo week,QA-01,PRD FR-26; BR-11,To do,web
 FR-32,Xero reminders check during setup,requirement,Should,S,2,Product Owner,PoV round 1,QA-01,PRD FR-32,To do,web
+APP-01,"First-run setup wizard: set up or join, five steps, resumes from the data",screen,Should,M,5,UX lead,PoV round 1,FR-02,App Flow: Journey 1,To do,web
 FR-27,Owner's voice: style note and one example reminder (UI-11),requirement,Should,S,3,Dev 2 (jobs and AI),PoV round 1,FR-08,PRD FR-27; AI-03,To do,ai
 FR-22,Trust summary on the activity log,requirement,Could,S,3,Scrum Master,PoV round 2,FR-21,PRD FR-22,Backlog,web
 FR-33,Call-first flag on drafts and in the briefing,requirement,Could,S,2,Product Owner,PoV round 2,FR-14,PRD FR-33,Backlog,web

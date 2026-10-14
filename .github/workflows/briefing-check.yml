@@ -1,0 +1,33 @@
+# NFR-10: 37 minutes after each briefing slot, alert the team if a briefing has not gone. A late briefing makes
+# this run fail (red), so GitHub also notifies the team.
+name: Briefing check
+
+on:
+  schedule:
+    - cron: '37 7 * * 1-5'
+      timezone: 'Australia/Sydney'
+    - cron: '37 18 * * 1-5'
+      timezone: 'Australia/Sydney'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event_name == 'workflow_dispatch' || vars.JOBS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Check every briefing went
+        run: node jobs/briefing-check.ts
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}

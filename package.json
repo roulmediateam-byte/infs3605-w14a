@@ -1,0 +1,27 @@
+{
+  "name": "getpaid-apprentice",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Get-Paid Apprentice: database schema, scheduled jobs and prompts (Team W14A-5, INFS3605, UNSW).",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "npm run typecheck && npm run test:jobs",
+    "test:jobs": "node --test jobs/test/*.test.ts",
+    "test:db": "supabase test db",
+    "test:db:local": "bash scripts/test-local.sh",
+    "typecheck": "tsc --noEmit",
+    "job:weekly-run": "node --env-file-if-exists=.env jobs/weekly-run.ts",
+    "job:briefing": "node --env-file-if-exists=.env jobs/briefing.ts",
+    "job:briefing-check": "node --env-file-if-exists=.env jobs/briefing-check.ts",
+    "job:nudge": "node --env-file-if-exists=.env jobs/nudge.ts",
+    "job:health-check": "node --env-file-if-exists=.env jobs/health-check.ts",
+    "eval:prompt": "node --env-file-if-exists=.env jobs/eval-prompt.ts"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3"
+  }
+}

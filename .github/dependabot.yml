@@ -1,0 +1,18 @@
+# NFR-08: dependency alerts and weekly update pull requests.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '08:00'
+      timezone: Australia/Sydney
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '08:00'
+      timezone: Australia/Sydney
+    open-pull-requests-limit: 5

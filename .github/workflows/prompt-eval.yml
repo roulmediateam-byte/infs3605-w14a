@@ -1,0 +1,36 @@
+# AI output tests (Design Requirements v0.1 section 14): before merging any change to prompts/, run the 30 fixed
+# cases against the real model; every reply must pass AI-06. A teammate then reads the 10 samples in the log.
+name: Prompt evaluation
+
+on:
+  pull_request:
+    paths:
+      - 'prompts/**'
+      - 'jobs/lib/claude.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start local Supabase (database and API) for the AI-06 checks
+        run: supabase start -x studio,imgproxy,realtime,storage-api,edge-runtime,logflare,vector
+      - name: Run the 30 cases
+        run: |
+          SUPABASE_URL="$(supabase status --output json | jq -r '.API_URL')" \
+          SUPABASE_SERVICE_ROLE_KEY="$(supabase status --output json | jq -r '.SERVICE_ROLE_KEY')" \
+          node jobs/eval-prompt.ts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_MODEL: ${{ vars.AI_MODEL }}

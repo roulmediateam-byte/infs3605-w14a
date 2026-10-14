@@ -1,0 +1,46 @@
+name: Requirement or screen
+description: One issue per requirement (FR-, NFR-) or screen (UI-, EM-), named by its ID.
+title: "FR-00 Short name"
+labels: ["requirement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Name the issue by its ID, for example "FR-14 Review one draft at a time". Copy the acceptance criteria from the PRD; do not rewrite them.
+        Never put real names, emails, invoices or screenshots of real data in an issue (NFR-04). Use the seed's Test data.
+  - type: input
+    id: ids
+    attributes:
+      label: IDs covered
+      description: Requirement, screen, rule and test IDs, for example FR-14, UI-03, BR-07, AT-01.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: [Must, Should, Could, Won't this time]
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria (from the PRD)
+      description: Paste them as a checklist. The issue is done when every box is ticked and tested.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Design and build notes
+      description: Links to the app flow, UI design brief, database function or ADR this depends on.
+  - type: checkboxes
+    id: ready
+    attributes:
+      label: Definition of ready
+      options:
+        - label: Acceptance criteria are testable and agreed with the Product Owner
+        - label: Dependencies are done or not needed
+        - label: Sized (S, M or L) and has one owner

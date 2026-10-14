@@ -1,0 +1,49 @@
+# FR-07: draft reminders every Sunday at 9:00 pm Sydney time. Schedules avoid the top of the hour because GitHub
+# delays or drops runs at busy times; the Monday 5:07 am run catches up if Sunday's was dropped (NFR-09).
+# The repository variable JOBS_ENABLED must be "true" for schedules to run. "Run workflow" always works.
+name: Weekly run
+
+on:
+  schedule:
+    - cron: '7 21 * * 0'
+      timezone: 'Australia/Sydney'
+    - cron: '7 5 * * 1'
+      timezone: 'Australia/Sydney'
+  workflow_dispatch:
+    inputs:
+      business_id:
+        description: 'Business id (UUID). Leave empty for every business that is due.'
+        required: false
+        type: string
+      force:
+        description: 'Run again even if this week already succeeded'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-run
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: github.event_name == 'workflow_dispatch' || vars.JOBS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Draft this week's reminders
+        run: node jobs/weekly-run.ts
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_MODEL: ${{ vars.AI_MODEL }}
+          JOB_BUSINESS_ID: ${{ inputs.business_id }}
+          JOB_FORCE: ${{ inputs.force }}

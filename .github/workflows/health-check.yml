@@ -1,0 +1,42 @@
+# Daily at 9:17 am Sydney time: keep the free database awake, flag failed or stuck runs, and delete data that has
+# reached its retention date (NFR-03, PD-7). Every business is deleted from Thu 31 Dec 2026.
+name: Health check and retention
+
+on:
+  schedule:
+    - cron: '17 9 * * *'
+      timezone: 'Australia/Sydney'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Run again today'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: health-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: github.event_name == 'workflow_dispatch' || vars.JOBS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Health check, then retention
+        run: node jobs/health-check.ts
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          JOB_FORCE: ${{ inputs.force }}

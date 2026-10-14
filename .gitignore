@@ -1,0 +1,24 @@
+# Dependencies and build output
+node_modules/
+coverage/
+dist/
+
+# Local secrets: never commit these (NFR-06). Copy .env.example to .env.
+.env
+.env.*
+!.env.example
+
+# Supabase CLI working files
+supabase/.branches/
+supabase/.temp/
+
+# Real data never belongs in this repository (CM-3, NFR-04). Keep exports and uploads outside it.
+*.xlsx
+exports/
+uploads/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "subject": {
+      "type": "string",
+      "description": "Email subject, 70 characters or fewer, with facts only as placeholders."
+    },
+    "body": {
+      "type": "string",
+      "description": "Email body of 40 to 150 words, without a signature. {invoice_number}, {amount_due} and {due_date} each appear exactly once."
+    }
+  },
+  "required": ["subject", "body"],
+  "additionalProperties": false
+}

@@ -1,0 +1,34 @@
+# Supabase CLI settings for local development and CI (supabase start, supabase db start, supabase test db).
+# Hosted projects are configured in the Supabase dashboard; see docs/runbook.md, "Set up a project".
+project_id = "getpaid-apprentice"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+jwt_expiry = 3600
+# FR-01: only invited people can sign in. Accounts are created by the team or the invite-member function.
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+enable_confirmations = false
+double_confirm_changes = true
+# FR-01 and NFR-07: one-time sign-in links expire within 1 hour.
+otp_expiry = 3600

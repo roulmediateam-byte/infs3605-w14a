@@ -1,0 +1,39 @@
+name: Bug
+description: Something does not work as the PRD or the tests say it should.
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Use Test data only. Never paste real client names, emails, amounts or screenshots of real data (NFR-04).
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: Screen or job and the requirement it breaks, for example UI-03, FR-15.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce (on Test data)
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual result
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Critical means a reminder could be sent without approval, a wrong amount could be shown, or data could leak.
+      options: [Critical, Major, Minor]
+    validations:
+      required: true

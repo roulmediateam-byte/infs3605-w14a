@@ -1,0 +1,53 @@
+# FR-11 and BR-13: briefings go from 45 minutes before each business's slot (7:00 am or 6:00 pm Sydney time).
+# Two runs per slot: the second only acts if the first was dropped or failed (NFR-09).
+name: Briefing
+
+on:
+  schedule:
+    - cron: '37 6 * * 1-5'
+      timezone: 'Australia/Sydney'
+    - cron: '52 6 * * 1-5'
+      timezone: 'Australia/Sydney'
+    - cron: '37 17 * * 1-5'
+      timezone: 'Australia/Sydney'
+    - cron: '52 17 * * 1-5'
+      timezone: 'Australia/Sydney'
+  workflow_dispatch:
+    inputs:
+      business_id:
+        description: 'Business id (UUID) to brief now. Leave empty for every business that is due.'
+        required: false
+        type: string
+      force:
+        description: 'Send again even if today''s briefing already went'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: briefing
+  cancel-in-progress: false
+
+jobs:
+  send:
+    if: github.event_name == 'workflow_dispatch' || vars.JOBS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Send the briefings that are due
+        run: node jobs/briefing.ts
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          APP_URL: ${{ vars.APP_URL }}
+          JOB_BUSINESS_ID: ${{ inputs.business_id }}
+          JOB_FORCE: ${{ inputs.force }}

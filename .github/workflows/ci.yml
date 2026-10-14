@@ -1,0 +1,51 @@
+# Tests on every pull request and every push to main (NFR-08, NFR-16). Merging needs this to pass.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  database:
+    name: Database (migrations, seed, pgTAP)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start a local Supabase database (applies migrations and seed.sql)
+        run: supabase db start
+      - name: Run the pgTAP tests
+        run: supabase test db
+
+  jobs:
+    name: Scheduled-job code (types and unit tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:jobs
+
+  hygiene:
+    name: No secrets or personal data
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash scripts/check-hygiene.sh

@@ -1,0 +1,6 @@
+# Who reviews what. Replace the placeholders with GitHub usernames once roles are named (PRD open question:
+# Product Owner, Dev lead and UX lead, due Thu 15 Oct 2026), then uncomment.
+# /supabase/   @dev-lead
+# /jobs/       @dev-lead
+# /prompts/    @product-owner @dev-lead
+# /docs/       @product-owner

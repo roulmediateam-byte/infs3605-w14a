@@ -49,9 +49,9 @@ while IFS='|' read -r title due description; do
     echo "  · $title"
   fi
 done <<'MILESTONES'
-Sprint 1|2026-10-18T12:59:00Z|Mon 12 to Sun 18 Oct 2026: foundations, sign-in and import
-Sprint 2|2026-10-25T12:59:00Z|Mon 19 to Sun 25 Oct 2026 (Flex Week): the review, send and briefing flow
-Demo week|2026-11-01T12:59:00Z|Mon 26 Oct to Sun 1 Nov 2026: dry run Mon 26 Oct, demonstration Wed 28 Oct at 2:00 pm
+Sprint 1|2026-10-18T12:59:00Z|Mon 12 to Sun 18 Oct 2026: accounts, projects, the weekly run by hand, DEL-08, specs and frames
+Sprint 2|2026-10-25T12:59:00Z|Mon 19 to Sun 25 Oct 2026 (Flex Week): the review loop end to end, acceptance and cold-user tests
+Demo week|2026-11-01T12:59:00Z|Mon 26 Oct to Sun 1 Nov 2026: dry run Mon 26 Oct, demonstration Wed 28 Oct at 2:00 pm, then the Musts that gate owner testing
 PoV round 1|2026-11-08T12:59:00Z|Mon 2 to Sun 8 Nov 2026: first owner testing round
 PoV round 2|2026-11-12T12:59:00Z|Mon 9 to Thu 12 Nov 2026: change list, then the second round
 After the course|2026-12-31T12:59:00Z|Minimum viable product and later
@@ -68,7 +68,8 @@ for row in csv.DictReader(open(sys.argv[1], encoding="utf-8")):
         f"**Owner (role):** {row['owner_role']}  \n"
         f"**Size:** {row['size']} ({row['estimate_hours']} h estimated)  \n"
         f"**Depends on:** {row['depends_on'] or 'nothing'}  \n"
-        f"**Acceptance criteria:** {row['acceptance_ref']}  \n\n"
+        f"**Acceptance criteria:** {row['acceptance_ref']}  \n"
+        f"**Done when:** {row['done_when']}  \n\n"
         "Definition of done: meets its acceptance criteria with tests passing in CI; reviewed and merged by a teammate; "
         "works at 360 px and passes the accessibility checks for its screen; no personal data in code, issue or logs; "
         "the pull request names the IDs it covers."

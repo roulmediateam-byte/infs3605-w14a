@@ -9,13 +9,30 @@ on:
     - cron: '37 18 * * 1-5'
       timezone: 'Australia/Sydney'
   workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which Supabase project: dev (Test data and demonstrations) or pilot (owner testing)'
+        required: true
+        type: choice
+        options: [dev, pilot]
+        default: dev
 
 permissions:
   contents: read
 
+concurrency:
+  group: briefing-check
+  cancel-in-progress: false
+
 jobs:
   check:
     if: github.event_name == 'workflow_dispatch' || vars.JOBS_ENABLED == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        # Scheduled runs act on every project in JOB_TARGETS (["dev"] until owner testing, then ["dev","pilot"]);
+        # "Run workflow" acts on the one project chosen in the form.
+        target: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.target) || vars.JOB_TARGETS || '["dev"]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -26,8 +43,8 @@ jobs:
       - name: Check every briefing went
         run: node jobs/briefing-check.ts
         env:
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ (matrix.target == 'pilot' && vars.SUPABASE_URL_PILOT) || (matrix.target == 'dev' && vars.SUPABASE_URL) || '' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ (matrix.target == 'pilot' && secrets.SUPABASE_SERVICE_ROLE_KEY_PILOT) || (matrix.target == 'dev' && secrets.SUPABASE_SERVICE_ROLE_KEY) || '' }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ vars.EMAIL_FROM }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}

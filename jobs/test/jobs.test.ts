@@ -119,6 +119,39 @@ describe('Briefing (FR-11, NFR-09)', () => {
     assert.deepEqual(sent.map((email) => [email.to, email.idempotencyKey]), [['owner@example.test', 'briefing:b1:2026-11-09']]);
     assert.deepEqual(calls.find((call) => call.fn === 'job_record_email')?.args, { p_run_id: 'r2', p_provider_message_id: 'msg-1' });
   });
+  it('gives a forced re-send its own idempotency key, so the provider does not drop it as a repeat', async () => {
+    const sent: Array<{ idempotencyKey: string }> = [];
+    const { rpc, calls } = fakeRpc({
+      job_period_key: '2026-10-28',
+      job_start: { run_id: 'r9', proceed: true, reason: 'forced' },
+      job_get_briefing: {
+        business: { id: 'b1', name: 'Test (Test data)', owner_name: 'Alex Test', is_test_data: true },
+        as_of_date: '2026-10-28',
+        totals: { owed_cents: 100, overdue_cents: 0, open_count: 1, overdue_count: 0, due_this_week_cents: 0, due_this_week_count: 0 },
+        drafts_waiting: 0,
+        first_draft_id: null,
+        overdue: [],
+        needs_attention: [],
+        paused_clients: [],
+        recipient: { email: 'owner@example.test', name: 'Alex Test' },
+      },
+      job_record_email: null,
+      job_finish: null,
+    });
+    const code = await runBriefings({
+      rpc,
+      send: async (email) => {
+        sent.push(email);
+        return 'msg-2';
+      },
+      appUrl: 'https://app.example',
+      flags: { force: true, businessId: 'b1', asOf: '2026-10-28T13:30:00+11:00' },
+      githubRunUrl: null,
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(sent.map((email) => email.idempotencyKey), ['briefing:b1:2026-10-28:r9']);
+    assert.equal(calls.find((call) => call.fn === 'job_start')?.args.p_trigger, 'manual');
+  });
 });
 
 describe('Plumbing', () => {

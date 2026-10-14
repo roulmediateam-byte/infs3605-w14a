@@ -59,11 +59,11 @@ Scheduled jobs use the service role and may call only `job_*` functions. Team ad
 
 | Secret or variable | Where it lives | Used by |
 | --- | --- | --- |
-| `SUPABASE_SERVICE_ROLE_KEY` | Actions secret | Scheduled jobs |
+| `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY_PILOT` | Actions secrets, one per project (dev, pilot) | Scheduled jobs |
 | `ANTHROPIC_API_KEY` | Actions secret; spending cap set in the Claude Console (NFR-15) | Weekly run, prompt evaluation |
 | `RESEND_API_KEY` | Actions secret | Briefing, nudge, alerts |
 | `ALERT_EMAIL` | Actions secret (it is a person's address) | Alerts |
-| `SUPABASE_URL`, `EMAIL_FROM`, `APP_URL`, `AI_MODEL`, `JOBS_ENABLED` | Actions variables (not secret) | Jobs |
+| `SUPABASE_URL`, `SUPABASE_URL_PILOT`, `APP_URL`, `APP_URL_PILOT`, `EMAIL_FROM`, `AI_MODEL`, `JOBS_ENABLED`, `JOB_TARGETS` | Actions variables (not secret) | Jobs |
 | The Supabase publishable (anon) key | The web app's build settings | Browser; safe because RLS does the checking |
 
 Rotate a key at once if it may have leaked: create the new one, update the secret, revoke the old one, and record it in the decision log (codes and links only).
@@ -74,4 +74,5 @@ Rotate a key at once if it may have leaked: create the new one, update the secre
 - No personal data in AI requests, logs, error reports or GitHub (NFR-04). Job logs carry ids and counts; errors are redacted.
 - The AI provider does not train on API data by default; plan for its retention policy (TRD, "AI"). Xero data must never train AI models (Xero developer terms).
 - Sydney region for the database (NFR-17).
+- Processors to name in the written agreement for real data (D7): Supabase (database and sign-in, Sydney); Resend (emails to the owner and checker, processed overseas; the briefing carries client names and amounts); Anthropic (wording only, no personal data, overseas); GitHub (code and job logs, no personal data).
 - Retention (NFR-03, PD-7): each test business is deleted within 2 weeks of its testing; all business data by Thu 31 Dec 2026. Deletion leaves a receipt with counts only.

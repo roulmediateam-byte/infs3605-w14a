@@ -2,7 +2,7 @@
 
 Get-Paid Apprentice drafts payment reminders in the owner's voice and a Monday briefing for small construction businesses, and nothing reaches a client until the owner or a named checker approves it. This repository holds the database, the scheduled jobs, the AI prompt and the plan for the proof of concept (PoC) built by Team W14A-5 for INFS3605 at UNSW, Term 3 2026.
 
-**Status, Thu 15 Oct 2026:** the backend is built and tested (235 database tests, 33 job tests, an end-to-end check). The web app is next (sprint 1 and 2; see `planning/backlog.csv`). All data in this repository is synthetic and labelled "Test data".
+**Status, Thu 15 Oct 2026:** the backend is built and tested (235 database tests, 34 job tests, an end-to-end check, and a check of the demonstration and onboarding scripts). The web app is next: sprint 2 builds the review loop for the Week 7 demonstration (see `planning/backlog.csv`). All data in this repository is synthetic and labelled "Test data".
 
 **Product documents** (Claude Docs in Adam's account; ask him to share them with you): [PRD](https://claude.ai/code/artifact/4d00db9a-df6a-4d9d-b8a2-e030d57a5adf) for what and why, [TRD](https://claude.ai/code/artifact/7d113434-7532-4f15-8727-e2046bee1ecd) for how it is built, [App Flow](https://claude.ai/code/artifact/652cbc3c-237c-4b00-bdfa-624ca2eb94c1) for every journey and state, [UI design brief](https://claude.ai/code/artifact/1b7ffba8-ce51-4ce3-814f-a063abf0b3d2) for the look, words and accessibility, and [Implementation plan](https://claude.ai/code/artifact/023fe09a-0811-4956-9b94-19c9fe6e43ac) for who builds what, when.
 
@@ -45,7 +45,7 @@ You need Node 22.18 or later and either the Supabase CLI with Docker, or a plain
 
 ```bash
 npm ci                      # TypeScript and Node types, for checking only
-npm test                    # type check and the 31 job tests
+npm test                    # type check and the 34 job tests
 
 # With the Supabase CLI and Docker
 supabase start              # local stack with the migrations and the Test data seed
@@ -67,8 +67,8 @@ To run a job locally, copy `.env.example` to `.env`, fill it in from `supabase s
 | `jobs/` | Weekly run, briefing, briefing check, nudge, health check and retention; prompt evaluation |
 | `prompts/` | The versioned AI prompt, its output schema and 30 evaluation cases |
 | `.github/` | CI, the scheduled workflows, issue and pull request templates, Dependabot |
-| `planning/backlog.csv` | The product backlog: owner role, size, hours, sprint, dependency and acceptance reference |
-| `scripts/` | Local test runner, end-to-end check, hygiene check, GitHub bootstrap, data dictionary, demo import |
+| `planning/backlog.csv` | The product backlog, 79 items: owner role, size, hours, sprint, dependency, acceptance reference and a one-line "done when" |
+| `scripts/` | Local test runner, end-to-end check, hygiene check, GitHub bootstrap, data dictionary, demonstration import and inboxes, owner onboarding |
 | `docs/` | Data model, security model, lifecycles, API, rules-to-tests map, runbook, decision records |
 
 ## Working in this repository

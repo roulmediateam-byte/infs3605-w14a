@@ -15,3 +15,5 @@ Each record states one decision, why it was made and what follows from it. Team 
 | [0009](0009-cool-down-setting.md) | Make the cool-down a setting with a default of 6 days | Proposed (decision D6, for feature lock) |
 | [0010](0010-ai-checks-in-the-database.md) | Keep the AI-06 checks and fallback templates in the database | Accepted |
 | [0011](0011-zero-dependency-jobs.md) | Run the jobs on Node 22 with no runtime dependencies | Accepted |
+| [0012](0012-jobs-run-per-project.md) | Run every scheduled job on each Supabase project in use | Proposed (implementation plan v1.1) |
+| [0013](0013-team-run-onboarding-in-the-poc.md) | The team sets up each owner in the proof of concept | Proposed (implementation plan v1.1) |

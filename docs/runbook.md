@@ -6,15 +6,16 @@ How to set up, run and recover the service. Every step uses Test data unless an 
 
 1. Create two Supabase projects in the Sydney region (ap-southeast-2, NFR-17): `getpaid-dev` (Test data only) and `getpaid-pilot` (owner testing). The free plan allows two active projects.
 2. Link and push the schema: `supabase link --project-ref <ref>` then `supabase db push`. Do not run `seed.sql` on the pilot project.
-3. In Authentication: turn off new sign-ups; set the one-time link expiry to 3,600 seconds (FR-01, NFR-07); set the site URL to the GitHub Pages address; set custom SMTP to Resend (the built-in sender allows only 2 emails an hour); edit the magic-link email template so it carries both the link (`{{ .ConfirmationURL }}`) and the 6-digit code (`{{ .Token }}`), because phones often open links in an email app's own browser.
+3. In Authentication: turn off new sign-ups; set the one-time link expiry to 3,600 seconds (FR-01, NFR-07); set the site URL to the GitHub Pages address; set custom SMTP to Resend (the built-in sender allows only 2 emails an hour); edit the magic-link and the invite-user email templates so each carries both the link (`{{ .ConfirmationURL }}`) and the 6-digit code (`{{ .Token }}`), because phones often open links in an email app's own browser. The team invites owners from Authentication, so the invite template is the first email an owner sees.
 4. In Resend: add the sending domain and publish its SPF, DKIM and DMARC records (NFR-18). Send a test briefing to Gmail and Outlook and check it lands in the inbox.
 5. In the Claude Console: create an API key and set a monthly spending limit (proposed A$20, NFR-15).
-6. In GitHub, Settings > Secrets and variables > Actions:
-   - secrets `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `ALERT_EMAIL`;
-   - variables `SUPABASE_URL`, `EMAIL_FROM`, `APP_URL`, `AI_MODEL` (`claude-haiku-5-5`).
-   The secrets point at the dev project until owner testing starts on Mon 2 Nov 2026, then at the pilot project.
-7. Set the variable `JOBS_ENABLED` to `true` to switch the schedules on. Set it to `false` to stop them at once.
+6. In GitHub, Settings > Secrets and variables > Actions. Each job runs once per project it targets, so the dev and pilot projects each have their own address and key:
+   - secrets `SUPABASE_SERVICE_ROLE_KEY` (dev), `SUPABASE_SERVICE_ROLE_KEY_PILOT`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `ALERT_EMAIL`;
+   - variables `SUPABASE_URL` (dev), `SUPABASE_URL_PILOT`, `APP_URL` (the demo build), `APP_URL_PILOT` (the owners' build), `EMAIL_FROM`, `AI_MODEL` (`claude-haiku-5-5`);
+   - variable `JOB_TARGETS`: `["dev"]` until owner testing starts on Mon 2 Nov 2026, then `["dev","pilot"]`. The dev project keeps running after that, because the video (Thu 12 Nov) and the Week 10 Showcase are demonstrated on it, and its daily health check stops the free database from pausing.
+7. Set the variable `JOBS_ENABLED` to `true` to switch the schedules on. Set it to `false` to stop them at once, on both projects.
 8. Protect `main`: require a pull request, one approving review and the CI checks (NFR-08). Turn on Dependabot alerts.
+9. Web app builds (SET-08): until Mon 2 Nov 2026 the site has one build, on the dev project. From then on it has two: the owners' build at the site root on the pilot project, and the demo build under `/demo/` on the dev project. Add both addresses to each project's redirect list. The navigation shows a screen only once it has passed its tests, so no build has a dead link.
 
 ## Board
 
@@ -34,9 +35,9 @@ Minutes avoid the top of the hour because GitHub delays or drops scheduled runs 
 
 ## Run a job by hand
 
-Actions > choose the workflow > Run workflow. Fill in the business id to act on one business, and tick "force" to run again for a period that already succeeded. Locally: copy `.env.example` to `.env`, fill it in, then `npm run job:weekly-run -- --business=<id> --force`.
+Actions > choose the workflow > Run workflow. Choose the project (dev or pilot), fill in the business id to act on one business, and tick "force" to run again for a period that already succeeded. A forced briefing gets an email key of its own, so it is really sent again. Locally: copy `.env.example` to `.env`, fill it in, then `npm run job:weekly-run -- --business=<id> --force`.
 
-Setup step 5 in the app flow ("a team member starts the first weekly run by hand") is this: run "Weekly run" with the new business's id and force ticked.
+After onboarding an owner, run "Weekly run" on the pilot with the new business's id, so their first drafts are waiting when they sign in. Force is not needed for a new business.
 
 ## When something goes wrong
 
@@ -50,10 +51,18 @@ Setup step 5 in the app flow ("a team member starts the first weekly run by hand
 
 ## Onboard an owner for testing (PoV, from Mon 2 Nov 2026)
 
-1. Start them on a copy of the sample data (D7). Real data only with their written agreement, filed outside GitHub.
-2. For real data, a team admin sets, in the SQL editor of the pilot project: `is_test_data = false`, `real_data_agreed_at` = the agreement date, and `delete_after` = 2 weeks after their last session (no later than Thu 26 Nov 2026 for round 2 testers).
-3. Team admins lose access to that business automatically; support only when the owner asks, and say so in the team chat (codes only).
-4. Check Xero's own reminders are off for their organisation (FR-32), or clients may be chased twice.
+In the proof of concept the team sets each owner up; the first-run wizard (APP-01) comes after the course. About 10 minutes per owner (OPS-01).
+
+1. Ask whether Xero sends its own reminders for their organisation (FR-32). If it does, ask them to turn them off, or clients may be chased twice.
+2. Create their business on the pilot project with a copy of the sample data (D7): `psql "<pilot connection string>" -v business_name='<business>' -v owner_name='<name>' -v owner_email='<email>' -v xero=off -f scripts/onboard-owner.sql` (use `on` or `unknown` for `xero` as they answered). Never paste these details into the team chat (PD-8).
+3. Invite them: Authentication > Invite user, with the same address. The invite email carries the link and the 6-digit code.
+4. Run "Weekly run" on the pilot with the business id printed by step 2, so drafts are waiting at their first sign-in.
+5. Real data only with their written agreement, filed outside GitHub. Then a team admin sets, in the pilot's SQL editor: `is_test_data = false`, `real_data_agreed_at` = the agreement date, and `delete_after` = 2 weeks after their last session, and no later than Wed 25 Nov 2026. The daily job deletes a business the day after its `delete_after` date, so Wed 25 Nov means deleted on Thu 26 Nov at 9:17 am (PD-7).
+6. Team admins lose access to that business automatically; support only when the owner asks, and say so in the team chat (codes only).
+
+## Testers' sign-in accounts
+
+The cold-user test (QA-02) and the acceptance tests put a tester's own email address into the dev project's sign-in accounts. Delete each tester's account (Authentication > Users) once their test is recorded, and by Mon 26 Oct 2026 for the cold-user test. The dev project holds Test data only.
 
 ## Delete data
 
@@ -61,9 +70,18 @@ Setup step 5 in the app flow ("a team member starts the first weekly run by hand
 - By date: the daily retention job deletes businesses past `delete_after`, then sign-in accounts left without a business for 14 days.
 - Course end: every business is deleted from Thu 31 Dec 2026 (NFR-03, PD-7). Record the final receipts in the decision log.
 
+## Live weekly run and briefing (AT-10)
+
+AT-10 needs a real Sunday run and a real Monday briefing. Reset the dev project to the seed by Sat 24 Oct 2026 and run `scripts/demo-emails.sql` (below), with `JOBS_ENABLED` on. The scheduled weekly run on Sun 25 Oct at 9:07 pm drafts the week, and the briefing reaches the team's owner inbox by 7:00 am on Mon 26 Oct. Record both in the DEL-08 test log.
+
 ## Week 7 demonstration (Wed 28 Oct 2026, 2:00 pm)
 
+The seed's addresses end in `.test`, which never receives mail, so point them at team inboxes first.
+
 1. On the dev project, reset to the seed: `supabase db reset --linked` (dev only), or apply `seed.sql` in the SQL editor.
-2. Sign in as `owner@example.test` (create the user in Authentication first).
-3. Generate the import file: `psql "<dev connection string>" -f scripts/make-demo-csv.sql > demo-import.csv`. It closes 1043, flags 1051's changed amount, skips one bad row and adds 1078.
-4. Follow the demo script in Design Requirements v0.1 section 14 and the app flow's demo path.
+2. Point the seed's owner and checker at team inboxes: `psql "<dev connection string>" -v owner_email='<team inbox>' -v checker_email='<team inbox>' -f scripts/demo-emails.sql`. Plus-addresses of one inbox work. Never commit the addresses.
+3. Add both addresses as users (Authentication > Add user), then sign in as the owner on the demonstration phone with the 6-digit code.
+4. Generate the import file: `psql "<dev connection string>" -f scripts/make-demo-csv.sql > demo-import.csv`. It closes 1043, lowers 1051 by A$450.00 (so its draft is cancelled and flagged), skips one bad row and adds 1078. After the import, Review holds 3 drafts: 1066, 1056 and 1062.
+5. At 1:30 pm, run "Briefing" on dev with the seed business's id (`0d5e0000-0000-4000-8000-000000000001`). Force is needed only if a briefing already went that day.
+6. During the demonstration, the evidence lead runs "Weekly run" on dev with the seed business's id and force ticked, and the narrator says so: in real use it runs every Sunday at 9:07 pm. Force is needed because the seed already holds this week's run. 1051 is redrafted at A$8,000.00, so Review holds 4 drafts.
+7. Follow the app flow's demonstration path. If the run is slow, carry on and return to 1051 at the end.

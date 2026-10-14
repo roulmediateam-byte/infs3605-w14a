@@ -65,6 +65,40 @@ if [ "${status}" -eq 0 ] && command -v node >/dev/null 2>&1; then
   TEST_DB="${DB}" node "${ROOT}/scripts/e2e-local.ts" || status=1
 fi
 
+if [ "${status}" -eq 0 ]; then
+  echo "▶ Scripts: demo emails and owner onboarding"
+  if run_psql -d "${DB}" -v owner_email='team+owner@inbox.example' -v checker_email='team+checker@inbox.example' \
+       -f "${ROOT}/scripts/demo-emails.sql" >/dev/null 2>&1 \
+     && run_psql -d "${DB}" -v business_name='Sample Owner Co' -v owner_name='Sam Sample' \
+       -v owner_email='sam@sample-owner.example' -v xero=off -f "${ROOT}/scripts/onboard-owner.sql" >/dev/null 2>&1 \
+     && ! run_psql -d "${DB}" -v business_name='Sample Owner Co' -v owner_name='Sam Sample' \
+       -v owner_email='sam@sample-owner.example' -f "${ROOT}/scripts/onboard-owner.sql" >/dev/null 2>&1; then
+    check="$(psql -X -q -t -A -d "${DB}" <<'SQL'
+select concat_ws(',',
+  (select count(*) from public.memberships where business_id = '0d5e0000-0000-4000-8000-000000000001'
+     and invited_email in ('team+owner@inbox.example', 'team+checker@inbox.example')),
+  (select count(*) from public.businesses where name = 'Sample Owner Co (Test data)' and is_test_data and xero_reminders = 'off'),
+  (select count(*) from public.invoices i join public.businesses b on b.id = i.business_id where b.name = 'Sample Owner Co (Test data)'),
+  (select sum(i.amount_due_cents) from public.invoices i join public.businesses b on b.id = i.business_id where b.name = 'Sample Owner Co (Test data)'),
+  (select count(*) from public.memberships m join public.businesses b on b.id = m.business_id
+     where b.name = 'Sample Owner Co (Test data)' and m.role = 'owner' and m.status = 'invited'),
+  (select count(*) from public.clients c join public.businesses b on b.id = c.business_id
+     where b.name = 'Sample Owner Co (Test data)' and c.paused));
+SQL
+)"
+    if [ "${check}" = "2,1,12,6244000,1,1" ]; then
+      echo "  ✓ demo-emails.sql points both invitations at team inboxes"
+      echo "  ✓ onboard-owner.sql creates a Test data business with 12 sample invoices, refuses a second run"
+    else
+      echo "  ✗ Script results not as expected: ${check}"
+      status=1
+    fi
+  else
+    echo "  ✗ A script failed"
+    status=1
+  fi
+fi
+
 if [ "${KEEP_DB}" != "1" ]; then
   run_psql -d postgres -c "drop database if exists ${DB}"
 fi

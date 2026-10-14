@@ -42,12 +42,10 @@ export async function runBriefings(deps: BriefingDeps): Promise<number> {
       const briefing = await rpc<Briefing>('job_get_briefing', { p_business_id: businessId, p_as_of: asOf });
       if (!briefing.recipient) throw new Error('The briefing has no recipient.');
       const email = renderBriefing(briefing, deps.appUrl);
-      const messageId = await deps.send({
-        to: briefing.recipient.email,
-        replyTo: null,
-        ...email,
-        idempotencyKey: `briefing:${businessId}:${periodKey}`,
-      });
+      // The key stops a retried job from sending twice. A forced re-send is deliberate, so it gets a key of its
+      // own; otherwise the email provider would treat it as a repeat for 24 hours and drop it.
+      const idempotencyKey = flags.force ? `briefing:${businessId}:${periodKey}:${start.run_id}` : `briefing:${businessId}:${periodKey}`;
+      const messageId = await deps.send({ to: briefing.recipient.email, replyTo: null, ...email, idempotencyKey });
       await rpc('job_record_email', { p_run_id: start.run_id, p_provider_message_id: messageId });
       await rpc('job_finish', {
         p_run_id: start.run_id,

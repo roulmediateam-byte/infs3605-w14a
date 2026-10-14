@@ -18,7 +18,7 @@ Every rule in Design Requirements v0.1 section 11 and every acceptance test in s
 | BR-10 | A draft still live at the next weekly run is replaced | `job_plan_weekly_run` (superseded) | 020 |
 | BR-11 | A paused client gets no drafts; live drafts cancelled; listed as paused | `set_client_paused`, `private.ineligibility`, briefing | 020, 060 |
 | BR-12 | Drafts still waiting at noon: one email to the checker | `job_due('nudge')`, `jobs/nudge.ts` | 070 |
-| BR-13 | Sunday 9:00 pm run; briefing by 7:00 am Monday (job from 6:30 am); noon nudge; Sydney time | Workflow schedules with `timezone`, `job_due` | 070 (AT-10) |
+| BR-13 | Sunday run due from 9:00 pm (cron 9:07 pm); briefing by its slot, 7:00 am or 6:00 pm Monday (job due from 45 minutes before); nudge at 12:07 pm; Sydney time | Workflow schedules with `timezone`, `job_due` | 070 (AT-10) |
 | BR-14 | Whole cents, shown as $1,250.00; UTC stored, Sydney shown | `bigint` columns, `private.format_aud`, `formatAud` | 001, 010, job unit tests |
 | BR-15 | Invoice numbers match after trimming; a number twice in one file rejects both rows | `confirm_import` step 2 | 030 |
 
@@ -35,6 +35,6 @@ Every rule in Design Requirements v0.1 section 11 and every acceptance test in s
 | AT-07 | Deleting the amount in Edit blocks saving with the reason | 010, 040 |
 | AT-08 | Running the weekly run twice creates no duplicates | 020, `scripts/e2e-local.ts` |
 | AT-09 | A checker cannot change a tone or a setting | 050 |
-| AT-10 | Sunday 9:00 pm run; briefing sent by 7:00 am Monday Sydney time | 070 (due times); live check on the pilot project in sprint 2 |
+| AT-10 | Sunday 9:00 pm run; briefing sent by 7:00 am Monday Sydney time | 070 (due times); live check on the dev project on Sun 25 and Mon 26 Oct 2026 |
 
-AT-10 also needs one live observation, because only GitHub can prove its scheduler fired: record the run times of the first Sunday run and Monday briefing on the pilot project in the DEL-08 test log.
+AT-10 also needs one live observation, because only GitHub can prove its scheduler fired: record the run times of the first Sunday run and Monday briefing on the dev project in the DEL-08 test log (runbook, "Live weekly run and briefing").

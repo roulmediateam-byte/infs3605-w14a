@@ -54,11 +54,12 @@ After onboarding an owner, run "Weekly run" on the pilot with the new business's
 In the proof of concept the team sets each owner up; the first-run wizard (APP-01) comes after the course. About 10 minutes per owner (OPS-01).
 
 1. Ask whether Xero sends its own reminders for their organisation (FR-32). If it does, ask them to turn them off, or clients may be chased twice.
-2. Create their business on the pilot project with a copy of the sample data (D7): `psql "<pilot connection string>" -v business_name='<business>' -v owner_name='<name>' -v owner_email='<email>' -v xero=off -f scripts/onboard-owner.sql` (use `on` or `unknown` for `xero` as they answered). Never paste these details into the team chat (PD-8).
+2. Create their business on the pilot project with a copy of the sample data (D7): `psql "<pilot connection string>" -v business_name='<business>' -v owner_name='<name>' -v owner_email='<email>' -v xero=off -f scripts/onboard-owner.sql` (use `on` or `unknown` for `xero` as they answered). The script sets `delete_after` to Wed 25 Nov 2026, so the business is deleted by Thu 26 Nov at the latest (PD-7). Never paste these details into the team chat (PD-8).
 3. Invite them: Authentication > Invite user, with the same address. The invite email carries the link and the 6-digit code.
 4. Run "Weekly run" on the pilot with the business id printed by step 2, so drafts are waiting at their first sign-in.
-5. Real data only with their written agreement, filed outside GitHub. Then a team admin sets, in the pilot's SQL editor: `is_test_data = false`, `real_data_agreed_at` = the agreement date, and `delete_after` = 2 weeks after their last session, and no later than Wed 25 Nov 2026. The daily job deletes a business the day after its `delete_after` date, so Wed 25 Nov means deleted on Thu 26 Nov at 9:17 am (PD-7).
-6. Team admins lose access to that business automatically; support only when the owner asks, and say so in the team chat (codes only).
+5. Real data only with their written agreement, filed outside GitHub. Then a team admin sets, in the pilot's SQL editor: `is_test_data = false` and `real_data_agreed_at` = the agreement date.
+6. After their last session, a team admin brings `delete_after` forward to 2 weeks after it, never later than Wed 25 Nov 2026. The daily job deletes a business the day after its `delete_after` date, so Wed 25 Nov means deleted on Thu 26 Nov at 9:17 am (PD-7).
+7. Once a business holds real data, team admins lose access to it automatically; support only when the owner asks, and say so in the team chat (codes only).
 
 ## Testers' sign-in accounts
 

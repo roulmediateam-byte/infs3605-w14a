@@ -53,7 +53,7 @@ Scheduled jobs use the service role and may call only `job_*` functions. Team ad
 | Shell injection from the "Run workflow" form | A crafted business id | Inputs passed as environment variables and validated as UUIDs | job unit tests |
 | Duplicate emails to the owner | A job retried after sending | Run claims per period; Resend idempotency keys | 070, job unit tests |
 | Formula injection in exports | A client name such as =HYPERLINK(...) runs when the CSV is opened | The app prefixes cells starting with =, +, -, @ or a tab with an apostrophe | FR-03 acceptance test |
-| Data kept too long | Testing ends but data stays | `delete_after` required for real data; daily purge; everything deleted from Thu 31 Dec 2026 | 070 |
+| Data kept too long | Testing ends but data stays | `delete_after` required for real data, and set to Wed 25 Nov 2026 for every owner-testing business by `scripts/onboard-owner.sql`; daily purge; everything deleted from Thu 31 Dec 2026 | 070; scripts check |
 
 ## Secrets
 

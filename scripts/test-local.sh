@@ -77,7 +77,8 @@ if [ "${status}" -eq 0 ]; then
 select concat_ws(',',
   (select count(*) from public.memberships where business_id = '0d5e0000-0000-4000-8000-000000000001'
      and invited_email in ('team+owner@inbox.example', 'team+checker@inbox.example')),
-  (select count(*) from public.businesses where name = 'Sample Owner Co (Test data)' and is_test_data and xero_reminders = 'off'),
+  (select count(*) from public.businesses where name = 'Sample Owner Co (Test data)' and is_test_data and xero_reminders = 'off'
+     and delete_after = date '2026-11-25'),
   (select count(*) from public.invoices i join public.businesses b on b.id = i.business_id where b.name = 'Sample Owner Co (Test data)'),
   (select sum(i.amount_due_cents) from public.invoices i join public.businesses b on b.id = i.business_id where b.name = 'Sample Owner Co (Test data)'),
   (select count(*) from public.memberships m join public.businesses b on b.id = m.business_id
@@ -88,7 +89,7 @@ SQL
 )"
     if [ "${check}" = "2,1,12,6244000,1,1" ]; then
       echo "  ✓ demo-emails.sql points both invitations at team inboxes"
-      echo "  ✓ onboard-owner.sql creates a Test data business with 12 sample invoices, refuses a second run"
+      echo "  ✓ onboard-owner.sql creates a Test data business with 12 sample invoices and delete_after Wed 25 Nov 2026, refuses a second run"
     else
       echo "  ✗ Script results not as expected: ${check}"
       status=1

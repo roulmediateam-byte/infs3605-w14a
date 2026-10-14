@@ -9,6 +9,8 @@
 -- sign-in link and the 6-digit code (runbook, "Set up a project"). On first sign-in the owner lands on Home.
 -- Names and addresses are passed in and never committed (NFR-04). The sample matches supabase/seed.sql: keep
 -- the two in step. Real invoices replace the sample only after a written agreement (runbook, "Onboard an owner").
+-- Every owner-testing business is created with delete_after Wed 25 Nov 2026, so the daily job deletes it by
+-- Thu 26 Nov 2026 (PD-7, NFR-03). Bring the date forward to two weeks after the owner's last session.
 
 \set ON_ERROR_STOP on
 \if :{?business_name}
@@ -43,6 +45,7 @@ declare
   owner_email constant text := lower(btrim(current_setting('onboard.owner_email')));
   xero constant public.xero_reminders_status := current_setting('onboard.xero')::public.xero_reminders_status;
   today constant date := (now() at time zone 'Australia/Sydney')::date;
+  last_delete_after constant date := date '2026-11-25';  -- deleted by Thu 26 Nov 2026 (PD-7)
   team_uploader constant uuid := '0d5e0000-0000-4000-8000-0000000000ff';
   biz uuid;
   sample_import uuid;
@@ -60,8 +63,8 @@ begin
     raise exception 'This address already owns a business here. Nothing was changed.';
   end if;
 
-  insert into public.businesses (name, owner_name, reply_to_email, xero_reminders, is_test_data)
-  values (business_name || ' (Test data)', owner_name, owner_email, xero, true)
+  insert into public.businesses (name, owner_name, reply_to_email, xero_reminders, is_test_data, delete_after)
+  values (business_name || ' (Test data)', owner_name, owner_email, xero, true, last_delete_after)
   returning id into biz;
 
   insert into public.memberships (business_id, invited_email, display_name, role, status)
@@ -114,6 +117,6 @@ begin
   update public.invoices set last_reminder_sent_at = now() - interval '8 days', reminders_sent_count = 1
    where business_id = biz and invoice_number = '1062';
 
-  raise notice 'Business % created with 12 sample invoices and an owner invitation. Next: invite the owner in Authentication, then run "Weekly run" by hand for this business id.', biz;
+  raise notice 'Business % created with 12 sample invoices, an owner invitation and delete_after %. Next: invite the owner in Authentication, then run "Weekly run" by hand for this business id.', biz, last_delete_after;
 end;
 $$;

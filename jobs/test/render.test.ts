@@ -43,7 +43,8 @@ describe('EM-01: the Monday briefing email', () => {
     assert.match(email.html, /href="https:\/\/app\.example\/review\?draft=d-first"/);
   });
   it('explains Needs attention and paused clients in plain words', () => {
-    assert.match(email.text, /Coastline, invoice 1060: no email address, so no reminder was drafted\. Add one in Clients\./);
+    assert.match(email.text, /Coastline, invoice 1060: no email address, so no reminder was drafted\. Add one in Xero and import again, or in Clients\./);
+    assert.match(email.text, /Change the briefing time in Settings\.$/);
     assert.match(email.text, /Paused: Ridgeway \(\$5,900\.00 overdue\)/);
   });
   it('escapes names in the HTML version and keeps a plain-text version', () => {

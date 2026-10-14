@@ -52,7 +52,7 @@ export function escapeHtml(value: string): string {
 const plural = (count: number, one: string, many: string): string => `${count} ${count === 1 ? one : many}`;
 
 const attentionReason: Record<string, string> = {
-  email_missing: 'no email address, so no reminder was drafted. Add one in Clients.',
+  email_missing: 'no email address, so no reminder was drafted. Add one in Xero and import again, or in Clients.',
   amount_changed: 'the amount changed in your latest import, so its reminder was cancelled. A new one comes on Sunday.',
   due_date_changed: 'the due date changed in your latest import, so its reminder was cancelled. A new one comes on Sunday.',
 };
@@ -99,7 +99,7 @@ export function renderBriefing(briefing: Briefing, appUrl: string): RenderedEmai
   if (briefing.paused_clients.length > 0) {
     lines.push(`Paused: ${briefing.paused_clients.map((client) => `${client.name} (${formatAud(client.overdue_cents)} overdue)`).join('; ')}`, '');
   }
-  lines.push('Get-Paid Apprentice. Every reminder waits for your approval. Change the briefing day or time in Settings.');
+  lines.push('Get-Paid Apprentice. Every reminder waits for your approval. Change the briefing time in Settings.');
   const text = lines.join('\n');
 
   return {

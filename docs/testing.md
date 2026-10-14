@@ -34,5 +34,5 @@ Tests pin every moment in Sydney time (for example Sun 8 Nov 2026, 9:00 pm), so 
 ## Manual checks before the demonstration
 
 - Accessibility: an automated checker on every screen, then keyboard-only and screen-reader passes on Home and Review (NFR-13).
-- A cold-user test on Fri 23 Oct 2026: someone outside the team imports and clears a review without help (NFR-12).
+- A cold-user test on Sun 25 Oct 2026: someone outside the team imports and clears a review without help (NFR-12).
 - AT-10 live: record the times of the first scheduled Sunday run and Monday briefing on the dev project in the DEL-08 test log.

@@ -462,7 +462,7 @@ as $$
       where (m.user_id = u.id or lower(m.invited_email) = lower(u.email)) and m.status <> 'removed'
     );
 $$;
-comment on function public.job_orphan_users(timestamptz) is 'Sign-in accounts with no current membership for 14 days; the retention job deletes them with the Auth admin API.';
+comment on function public.job_orphan_users(timestamptz) is 'Sign-in accounts created more than 14 days ago that have no current membership; the retention job deletes them with the Auth admin API.';
 
 create or replace function public.job_health(p_as_of timestamptz default now())
 returns jsonb

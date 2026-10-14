@@ -52,7 +52,7 @@ supabase start              # local stack with the migrations and the Test data 
 supabase test db            # the 235 database tests
 
 # Without Docker (any PostgreSQL 15+ with pgTAP)
-PGHOST=localhost PGUSER=postgres scripts/test-local.sh   # migrations, seed, database tests, then the end-to-end check
+PGHOST=localhost PGUSER=postgres scripts/test-local.sh   # migrations, seed, database tests, then the end-to-end and scripts checks
 ```
 
 To run a job locally, copy `.env.example` to `.env`, fill it in from `supabase status`, then `npm run job:weekly-run -- --business=0d5e0000-0000-4000-8000-000000000001 --force`. Without an AI key, drafts use the fallback templates; without an email key, emails are printed.

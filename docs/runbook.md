@@ -67,7 +67,7 @@ The cold-user test (QA-02) and the acceptance tests put a tester's own email add
 ## Delete data
 
 - An owner: Settings > Delete all (types the business name). A receipt with counts stays in `deletion_receipts`.
-- By date: the daily retention job deletes businesses past `delete_after`, then sign-in accounts left without a business for 14 days.
+- By date: the daily retention job deletes businesses past `delete_after`, then sign-in accounts that have no business and were created more than 14 days ago. A deleted owner's sign-in therefore goes within 14 days.
 - Course end: every business is deleted from Thu 31 Dec 2026 (NFR-03, PD-7). Record the final receipts in the decision log.
 
 ## Live weekly run and briefing (AT-10)

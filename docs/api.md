@@ -17,11 +17,11 @@ The web app and the jobs call these functions through Supabase (`supabase.rpc('n
 | `set_client_group(p_client_id, p_group)` | Owner | FR-34 | nothing |
 | `confirm_import(p_business_id, p_file_name, p_format, p_mapping, p_rows, p_expected_rows, p_expected_total_cents, p_allow_mass_close?)` | Owner, checker, admin (test data) | FR-04 to FR-06 in one transaction | counts and `errors` |
 | `review_queue(p_business_id)` | Owner, checker, admin (test data) | Waiting drafts, largest first, with facts and signature filled in (FR-14) | rows |
-| `approve_draft(p_draft_id, p_subject?, p_body?)` | Owner, checker | Approves, optionally with edited text that keeps the locked facts (FR-15, FR-17) | `{status, edited, next_draft_id}` |
-| `reject_draft(p_draft_id, p_reason, p_note?)` | Owner, checker | FR-16 | `{status}` |
+| `approve_draft(p_draft_id, p_subject?, p_body?)` | Owner, checker | Approves, optionally with edited text that keeps the locked facts (FR-15, FR-17) | `{status: 'approved', changed: true, edited, draft_id, next_draft_id}`; `{status: 'cancelled', changed: true, reason, draft_id}` when a fact no longer matches the records (BR-05); `{status, changed: false, draft_id}` when the draft was already decided |
+| `reject_draft(p_draft_id, p_reason, p_note?)` | Owner, checker | FR-16 | `{status: 'rejected', changed: true, draft_id}`; `{status, changed: false, draft_id}` when already decided |
 | `get_send_payload(p_draft_id)` | Owner; checker if allowed (D3) | Recipient and the exact approved text, or a logged refusal (AT-01) | `{ok, to, subject, body}` or `{ok: false, code, message}` |
-| `confirm_sent(p_draft_id, p_method?)` | Owner; checker if allowed | Records "Sent" and the last reminder date (FR-18, FR-20); safe to tap twice | `{ok, changed}` |
-| `mark_paid(p_invoice_id, p_paid_date?)` | Owner, checker | FR-24; cancels live drafts | `{status, drafts_cancelled}` |
+| `confirm_sent(p_draft_id, p_method?)` | Owner; checker if allowed | Records "Sent" and the last reminder date (FR-18, FR-20); safe to tap twice | `{ok, changed, draft_id}`; `changed: false` when already recorded |
+| `mark_paid(p_invoice_id, p_paid_date?)` | Owner, checker | FR-24; cancels live drafts | `{status: 'paid', changed: true, drafts_cancelled}`; `{status: 'paid', changed: false}` when already paid |
 | `undo_mark_paid(p_invoice_id)` | Owner, checker | Undo for a mistaken "Mark paid" | nothing |
 | `dismiss_attention(p_item_id)` | Owner, checker | Clears a Needs attention item | nothing |
 | `get_briefing(p_business_id, p_as_of?)` | Owner, checker, admin (test data) | The Home screen briefing; the same function as the email (AT-06) | JSON |
@@ -35,10 +35,10 @@ Errors to handle in the interface:
 | Code | Meaning | Show |
 | --- | --- | --- |
 | `28000` | Not signed in | Send to sign-in |
-| `42501` | Not allowed for this role or business | "You don't have permission to do that." |
+| `42501` | Not allowed for this role or business, including an id that belongs to another business | "You don't have permission to do that." |
 | `22023` | A rule was broken; the message says which | The message, next to the field it names |
 | `P0001` with hint `confirm_mass_close` | The import would close most open invoices | A confirmation dialog, then call again with `p_allow_mass_close = true` |
-| `P0002` | Not found (deleted, or another business's id) | "This item is no longer available." |
+| `P0002` | Not found (deleted, or never existed) | "This item is no longer available." |
 | `23505` | Already exists (for example a second checker) | The message |
 
 ## For the scheduled jobs (service role only)

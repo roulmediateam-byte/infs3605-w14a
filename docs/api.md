@@ -58,4 +58,4 @@ Errors to handle in the interface:
 | `job_record_email(p_run_id, p_provider_message_id)` | Briefing, nudge | Logs `briefing_sent` or `nudge_sent` |
 | `job_health(p_as_of?)` | Health check | Failed and stuck runs |
 | `job_retention_purge(p_as_of?)` | Health check | Deletes businesses past their delete date, and all from Thu 31 Dec 2026 |
-| `job_orphan_users(p_as_of?)` | Health check | Sign-in accounts with no business for 14 days, for deletion through the Auth admin API |
+| `job_orphan_users(p_as_of?)` | Health check | Sign-in accounts created more than 14 days ago with no current membership or invitation, for deletion through the Auth admin API |

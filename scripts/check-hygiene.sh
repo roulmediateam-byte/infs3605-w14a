@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fails if the repository holds a likely secret or a real-looking email address (NFR-04, NFR-06, CM-3).
-# Allowed addresses use reserved example domains (example.com, *.example, *.test) or GitHub's noreply domain.
+# Allowed addresses use reserved example domains (example.com, *.example, *.test, in any letter case) or GitHub's noreply domain.
 # Runs in CI on every pull request; run it locally before pushing.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -25,7 +25,7 @@ for pattern in "${secret_patterns[@]}"; do
 done
 
 emails=$(printf '%s\n' "$files" | xargs -r grep -hoIE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' 2>/dev/null | sort -u || true)
-bad=$(printf '%s\n' "$emails" | grep -vE '@(example\.com|[A-Za-z0-9.-]+\.example|[A-Za-z0-9.-]+\.test|users\.noreply\.github\.com)$' | grep -v '^$' || true)
+bad=$(printf '%s\n' "$emails" | grep -viE '@(example\.com|[A-Za-z0-9.-]+\.example|[A-Za-z0-9.-]+\.test|users\.noreply\.github\.com)$' | grep -v '^$' || true)
 if [ -n "$bad" ]; then
   echo "✗ Email addresses outside reserved example domains (use name@something.example instead):"
   echo "$bad" | sed 's/^/    /'

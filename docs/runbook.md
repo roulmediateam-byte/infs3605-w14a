@@ -15,7 +15,25 @@ How to set up, run and recover the service. Every step uses Test data unless an 
    - variable `JOB_TARGETS`: `["dev"]` until owner testing starts on Mon 2 Nov 2026, then `["dev","pilot"]`. The dev project keeps running after that, because the video (Thu 12 Nov) and the Week 10 Showcase are demonstrated on it, and its daily health check stops the free database from pausing.
 7. Set the variable `JOBS_ENABLED` to `true` to switch the schedules on. Set it to `false` to stop them at once, on both projects.
 8. Protect `main`: require a pull request, one approving review and the CI checks (NFR-08). Turn on Dependabot alerts.
-9. Web app builds (SET-08): until Mon 2 Nov 2026 the site has one build, on the dev project. From then on it has two: the owners' build at the site root on the pilot project, and the demo build under `/demo/` on the dev project. Add both addresses to each project's redirect list. The navigation shows a screen only once it has passed its tests, so no build has a dead link.
+9. Web app builds (SET-08): until Mon 2 Nov 2026 both builds use the dev project. From then on the owners' build at the site root uses the pilot project, and the demo build under `/demo/` stays on dev. Add both addresses to each project's redirect list. The navigation shows a screen only once it has passed its tests, so no build has a dead link. Steps in "Publish the web app" below.
+
+## Publish the web app
+
+GitHub Pages serves the app; the site is public even from a private repository, so it holds only the app and publishable keys. Pages is not for commercial use (UC-08), so it hosts the proof of concept only.
+
+1. The repository owner needs GitHub Pro, Team or Enterprise for Pages from a private repository. Students get GitHub Pro free through the GitHub Student Developer Pack.
+2. Settings > Pages > Build and deployment: set Source to "GitHub Actions".
+3. Settings > Secrets and variables > Actions > Variables (variables, not secrets: the values end up in the public site):
+   - `DEV_SUPABASE_URL` and `DEV_SUPABASE_PUBLISHABLE_KEY`, from the dev project's API settings. Never the secret or service role key.
+   - `PILOT_SUPABASE_URL` and `PILOT_SUPABASE_PUBLISHABLE_KEY` on Mon 2 Nov 2026. Until they exist, the site root uses the dev project too.
+   - `SUPPORT_EMAIL`, the team address behind "Contact the team" under More. It sends the business code only.
+   - `DEMO_HIDE_SCREENS`, for example `invoices,clients,settings`, to leave screens out of the demonstration build's navigation. Empty shows every screen.
+4. In each Supabase project, Authentication > URL Configuration: add `https://OWNER.github.io/REPO/` and `https://OWNER.github.io/REPO/demo/` to the redirect URLs. The sign-in link returns to the build the person signed in from, and Supabase sends it only to listed addresses. Set the Site URL to the root until Mon 2 Nov 2026; then set the dev project's to `/demo/`.
+5. Merge to `main`: any change under `web/` publishes both builds. To publish without a change, run Actions > "Deploy the web app" > Run workflow.
+6. After each publish, open both builds on a phone and sign in with a code. Check that the browser console shows no "Content Security Policy" errors and that a briefing email's Review link opens the right draft.
+7. To roll back, revert the pull request; the site republishes from `main`.
+
+The workflow refuses to publish when the pilot address and key aren't set together, or when a key looks like a secret or service role key. Every Pages site on one account shares one web address (`OWNER.github.io`), and pages there can read each other's browser storage. So publish from an account or organisation with no other Pages sites, or give the site its own custom domain.
 
 ## Board
 
@@ -81,7 +99,7 @@ The seed's addresses end in `.test`, which never receives mail, so point them at
 
 1. On the dev project, reset to the seed: `supabase db reset --linked` (dev only), or apply `seed.sql` in the SQL editor.
 2. Point the seed's owner and checker at team inboxes: `psql "<dev connection string>" -v owner_email='<team inbox>' -v checker_email='<team inbox>' -f scripts/demo-emails.sql`. Plus-addresses of one inbox work. Never commit the addresses.
-3. Add both addresses as users (Authentication > Add user), then sign in as the owner on the demonstration phone with the 6-digit code.
+3. Add both addresses as users (Authentication > Add user), then open the demonstration build (`https://OWNER.github.io/REPO/demo/`) on the demonstration phone and sign in as the owner with the 6-digit code.
 4. Generate the import file: `psql "<dev connection string>" -f scripts/make-demo-csv.sql > demo-import.csv`. It closes 1043, lowers 1051 by A$450.00 (so its draft is cancelled and flagged), skips one bad row and adds 1078. After the import, Review holds 3 drafts: 1066, 1056 and 1062.
 5. At 1:30 pm, run "Briefing" on dev with the seed business's id (`0d5e0000-0000-4000-8000-000000000001`). Force is needed only if a briefing already went that day.
 6. During the demonstration, the evidence lead runs "Weekly run" on dev with the seed business's id and force ticked, and the narrator says so: in real use it runs every Sunday at 9:07 pm. Force is needed because the seed already holds this week's run. 1051 is redrafted at A$8,000.00, so Review holds 4 drafts.

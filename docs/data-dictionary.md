@@ -17,7 +17,7 @@ One row per business, with the settings the PRD calls the job card (FR-02, FR-29
 | overdue_threshold_days | smallint | no | 7 | Days past due before a reminder is drafted (BR-01). Default 7; 1 to 60. |
 | cooldown_days | smallint | no | 6 | No new draft within this many Sydney days of a confirmed send (BR-04). Default 6 (decision D6, proposed). |
 | briefing_weekday | smallint | no | 1 | ISO weekday of the briefing, 1 = Monday to 5 = Friday (FR-02). Drafting runs on Sunday at 9:00 pm. |
-| briefing_time | time without time zone | no | '07:00:00'::time without time zone | Briefing slot in Sydney time: 07:00 or 18:00. The job starts 30 minutes earlier (BR-13). |
+| briefing_time | time without time zone | no | '07:00:00'::time without time zone | Briefing slot in Sydney time: 07:00 or 18:00. The briefing job is due from 45 minutes before it (BR-13). |
 | time_zone | text | no | 'Australia/Sydney'::text | Fixed to Australia/Sydney for the PoC. |
 | trust_level | trust_level | no | 'drafts_only'::trust_level | Trust ladder rung. Fixed at drafts_only until FR-30 is built. |
 | checker_may_send | boolean | no | false | Decision D3 (proposed): the owner sends; set true when the checker uses the business mailbox. |

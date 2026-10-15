@@ -42,6 +42,90 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:jobs
 
+  web:
+    name: Web app (types, units, build, end to end, accessibility)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The real migrations, row-level security and functions behind PostgREST, with a stand-in for Supabase Auth's
+    # email codes (scripts/local-stack). Test data only (RI-9).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      LOCAL_STACK_OTP_INTERVAL: 1
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: web
+      - name: Build the local database from the migrations and seed
+        run: bash scripts/local-stack/setup-db.sh
+      - name: The web app's database types match the migrations
+        run: node scripts/gen-web-types.ts --check
+      - name: The browser reads imports and edits as the database does
+        working-directory: web
+        run: node scripts/check-parity.ts
+      - name: Types
+        working-directory: web
+        run: npm run typecheck
+      - name: Unit tests
+        working-directory: web
+        run: npm test
+      - name: Start the local stack
+        run: |
+          LOCAL_STACK_SKIP_SETUP=1 nohup node scripts/local-stack/gateway.ts > local-stack.log 2>&1 &
+          for attempt in $(seq 1 60); do curl -sf http://127.0.0.1:54321/__local/health && exit 0; sleep 1; done
+          cat local-stack.log
+          exit 1
+      - name: Build against the local stack
+        working-directory: web
+        run: npm run build:e2e
+      - name: JavaScript budget (under 200 KB compressed at first load)
+        working-directory: web
+        run: npm run size
+      - name: Browser for the end-to-end tests
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end and accessibility tests (phone and computer)
+        working-directory: web
+        run: npx playwright test
+      - name: Build the site the way GitHub Pages serves it (root and /demo/)
+        working-directory: web
+        run: npm run build:pages-e2e
+      - name: Deep links, both builds and speed budgets, through a stand-in for GitHub Pages
+        working-directory: web
+        run: npx playwright test -c playwright.pages.config.ts
+      - name: Keep the reports when something fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report
+            web/playwright-report-pages
+            local-stack.log
+          retention-days: 7
+
   hygiene:
     name: No secrets or personal data
     runs-on: ubuntu-latest

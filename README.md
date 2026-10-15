@@ -2,9 +2,9 @@
 
 Get-Paid Apprentice drafts payment reminders in the owner's voice and a Monday briefing for small construction businesses, and nothing reaches a client until the owner or a named checker approves it. This repository holds the database, the scheduled jobs, the AI prompt and the plan for the proof of concept (PoC) built by Team W14A-5 for INFS3605 at UNSW, Term 3 2026.
 
-**Status, Thu 15 Oct 2026:** the backend is built and tested (235 database tests, 34 job tests, an end-to-end check, and a check of the demonstration and onboarding scripts). The web app is next: sprint 2 builds the review loop for the Week 7 demonstration (see `planning/backlog.csv`). All data in this repository is synthetic and labelled "Test data".
+**Status, Thu 15 Oct 2026:** the backend and the web app are built and tested. The backend has 235 database tests, 34 job tests, an end-to-end check, and a check of the demonstration and onboarding scripts. The web app (`web/`) has 21 unit tests and 45 browser tests, each run on a phone and a computer screen, with accessibility checks, plus 6 tests of the site as GitHub Pages serves it, including the speed budgets. Next: link GitHub, set up the Supabase projects and publish (`docs/runbook.md`). All data in this repository is synthetic and labelled "Test data".
 
-**Product documents** (Claude Docs in Adam's account; ask him to share them with you): [PRD](https://claude.ai/code/artifact/4d00db9a-df6a-4d9d-b8a2-e030d57a5adf) for what and why, [TRD](https://claude.ai/code/artifact/7d113434-7532-4f15-8727-e2046bee1ecd) for how it is built, [App Flow](https://claude.ai/code/artifact/652cbc3c-237c-4b00-bdfa-624ca2eb94c1) for every journey and state, [UI design brief](https://claude.ai/code/artifact/1b7ffba8-ce51-4ce3-814f-a063abf0b3d2) for the look, words and accessibility, and [Implementation plan](https://claude.ai/code/artifact/023fe09a-0811-4956-9b94-19c9fe6e43ac) for who builds what, when.
+**Product documents** (Claude Docs in Adam's account; ask him to share them with you): [PRD](https://claude.ai/code/artifact/4d00db9a-df6a-4d9d-b8a2-e030d57a5adf) for what and why, [TRD](https://claude.ai/code/artifact/7d113434-7532-4f15-8727-e2046bee1ecd) for how it is built, [App Flow](https://claude.ai/code/artifact/652cbc3c-237c-4b00-bdfa-624ca2eb94c1) for every journey and state, [UI design brief](https://claude.ai/code/artifact/1b7ffba8-ce51-4ce3-814f-a063abf0b3d2) for the look, words and accessibility, and [Implementation plan](https://claude.ai/code/artifact/023fe09a-0811-4956-9b94-19c9fe6e43ac) for who builds what, when. The [click-through preview](https://claude.ai/artifact/57vj9r12YxibBbvZfVkNsK) runs this repository's migrations in the browser with Test data (`web/README.md`).
 
 ## How it works
 
@@ -57,6 +57,16 @@ PGHOST=localhost PGUSER=postgres scripts/test-local.sh   # migrations, seed, dat
 
 To run a job locally, copy `.env.example` to `.env`, fill it in from `supabase status`, then `npm run job:weekly-run -- --business=0d5e0000-0000-4000-8000-000000000001 --force`. Without an AI key, drafts use the fallback templates; without an email key, emails are printed.
 
+To run the web app against a local stand-in for Supabase (no Docker):
+
+```bash
+(cd web && npm ci)
+PGHOST=localhost PGUSER=postgres npm run stack   # the migrations and seed behind PostgREST on http://127.0.0.1:54321
+cd web && npm run dev                             # http://127.0.0.1:5173; sign in as owner@example.test
+```
+
+The sign-in code is at http://127.0.0.1:54321/__local/codes?email=owner@example.test. See `web/README.md` for the tests and builds.
+
 ## What is where
 
 | Path | What |
@@ -66,9 +76,10 @@ To run a job locally, copy `.env.example` to `.env`, fill it in from `supabase s
 | `supabase/tests/database/` | pgTAP tests, named by the requirement or acceptance test they prove |
 | `jobs/` | Weekly run, briefing, briefing check, nudge, health check and retention; prompt evaluation |
 | `prompts/` | The versioned AI prompt, its output schema and 30 evaluation cases |
-| `.github/` | CI, the scheduled workflows, issue and pull request templates, Dependabot |
+| `.github/` | CI, the scheduled workflows, the web app's deploy to GitHub Pages, issue and pull request templates, Dependabot |
+| `web/` | The web app (React, Vite and TypeScript): screens UI-01 to UI-11, unit and end-to-end tests, the click-through preview |
 | `planning/backlog.csv` | The product backlog, 79 items: owner role, size, hours, sprint, dependency, acceptance reference and a one-line "done when" |
-| `scripts/` | Local test runner, end-to-end check, hygiene check, GitHub bootstrap, data dictionary, demonstration import and inboxes, owner onboarding |
+| `scripts/` | Local test runner, end-to-end check, hygiene check, GitHub bootstrap, data dictionary, demonstration import and inboxes, owner onboarding, the web app's database types, and the local stack for the web app (`scripts/local-stack/`) |
 | `docs/` | Data model, security model, lifecycles, API, rules-to-tests map, runbook, decision records |
 
 ## Working in this repository

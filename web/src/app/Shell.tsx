@@ -1,0 +1,97 @@
+// The frame around every screen except Review: five destinations, never more, in a bottom bar on phones and a side
+// bar from 768 px; standing banners for Test data, offline and Xero reminders (UI brief, Experience architecture).
+import { Ellipsis, FileText, House, Inbox, Users, type LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { screenEnabled } from './config.ts';
+import { useOnline } from './online.ts';
+import { useBriefing, useBusinessRecord } from './queries.ts';
+import { Link, type RouteName } from './router.tsx';
+import { useBackend } from './session.tsx';
+import { Banner } from '../ui/controls.tsx';
+import { XeroOffSteps } from '../ui/XeroSteps.tsx';
+
+interface NavItem {
+  to: string;
+  route: RouteName;
+  label: string;
+  icon: LucideIcon;
+  badge?: number;
+}
+
+const MORE_ROUTES: RouteName[] = ['more', 'import', 'log', 'settings'];
+
+export const Shell = ({ route, children }: { route: RouteName; children: ReactNode }) => {
+  const briefing = useBriefing();
+  const business = useBusinessRecord();
+  const online = useOnline();
+  const backend = useBackend();
+  const waiting = briefing.data?.drafts_waiting ?? 0;
+
+  const items: NavItem[] = [
+    { to: '', route: 'home', label: 'Home', icon: House },
+    { to: 'review', route: 'review', label: 'Review', icon: Inbox, badge: waiting },
+    ...(screenEnabled('invoices') ? [{ to: 'invoices', route: 'invoices' as const, label: 'Invoices', icon: FileText }] : []),
+    ...(screenEnabled('clients') ? [{ to: 'clients', route: 'clients' as const, label: 'Clients', icon: Users }] : []),
+    { to: 'more', route: 'more', label: 'More', icon: Ellipsis },
+  ];
+  const current = MORE_ROUTES.includes(route) ? 'more' : route;
+  const banners = [
+    backend.preview ? (
+      <Banner key="preview">
+        <strong>Preview.</strong> This copy of the app runs in your browser, on the repository's real migrations, with Test data. Nothing is sent, and a
+        reload starts again.
+      </Banner>
+    ) : null,
+    business.data?.is_test_data ? (
+      <Banner key="test">
+        <strong>Test data.</strong> This business holds made-up invoices for testing.
+        {route === 'import' ? ' Import only made-up invoices until the team records your written agreement to use real ones.' : null}
+      </Banner>
+    ) : null,
+    !online ? (
+      <Banner key="offline" tone="warning" role="status">
+        You're offline. Your place is saved.
+      </Banner>
+    ) : null,
+    business.data?.xero_reminders === 'on' ? (
+      <Banner key="xero" tone="warning">
+        <strong>Xero may send reminders too,</strong> so clients could get two. <XeroOffSteps />
+      </Banner>
+    ) : null,
+  ].filter(Boolean);
+
+  return (
+    <div className="app app-with-nav">
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
+      <nav className="nav" aria-label="Main">
+        <p className="nav-business">{business.data?.name ?? briefing.data?.business.name ?? 'Get-Paid Apprentice'}</p>
+        <ul className="nav-list">
+          {items.map((item) => (
+            <li key={item.route}>
+              <Link
+                className="nav-link"
+                to={item.to}
+                aria-current={current === item.route ? 'page' : undefined}
+                aria-label={item.badge ? `${item.label}, ${item.badge} ${item.badge === 1 ? 'draft' : 'drafts'} waiting` : undefined}
+              >
+                <item.icon size={20} strokeWidth={1.5} aria-hidden="true" />
+                <span className="nav-link-label">{item.label}</span>
+                {item.badge ? (
+                  <span className="nav-badge" aria-hidden="true">
+                    {item.badge}
+                  </span>
+                ) : null}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <main className="main" id="main" tabIndex={-1}>
+        {banners.length > 0 ? <div className="banners">{banners}</div> : null}
+        {children}
+      </main>
+    </div>
+  );
+};

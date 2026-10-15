@@ -62,7 +62,14 @@ grant usage on schema extensions to anon, authenticated, service_role;
 grant execute on all functions in schema auth to anon, authenticated, service_role;
 grant select on auth.users to service_role;
 
-create extension if not exists pgtap with schema extensions;
+-- pgTAP for the database tests. The local stack for the web app (scripts/local-stack) runs without it.
+do $$
+begin
+  if exists (select 1 from pg_available_extensions where name = 'pgtap') then
+    create extension if not exists pgtap with schema extensions;
+  end if;
+end;
+$$;
 
 -- Supabase's default grants on the public schema. Reproduced so the migrations' revokes are really tested.
 grant usage on schema public to anon, authenticated, service_role;

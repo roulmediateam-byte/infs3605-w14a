@@ -1,0 +1,115 @@
+# Publishes the web app to GitHub Pages on every merge to main (TRD, Environments and release; SET-08).
+#   The site root is the owners' build: the pilot project once PILOT_SUPABASE_URL is set (from Mon 2 Nov 2026),
+#   the dev project until then. /demo/ is the demonstration build on the dev project, with Test data only.
+# Settings > Pages must use "GitHub Actions" as the source. A Pages site is public even from a private repository,
+# so the bundle carries only publishable keys, kept as repository variables (not secrets): they are public by design
+# and the data stays behind row-level security. Repository variables used:
+#   DEV_SUPABASE_URL, DEV_SUPABASE_PUBLISHABLE_KEY, PILOT_SUPABASE_URL, PILOT_SUPABASE_PUBLISHABLE_KEY,
+#   SUPPORT_EMAIL (Contact the team), DEMO_HIDE_SCREENS (for example "invoices,clients,settings" until Sun 1 Nov 2026).
+name: Deploy the web app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build both sites
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - name: Check the project settings
+        env:
+          DEV_URL: ${{ vars.DEV_SUPABASE_URL }}
+          DEV_KEY: ${{ vars.DEV_SUPABASE_PUBLISHABLE_KEY }}
+          PILOT_URL: ${{ vars.PILOT_SUPABASE_URL }}
+          PILOT_KEY: ${{ vars.PILOT_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "$DEV_URL" ] || [ -z "$DEV_KEY" ]; then
+            echo "::error::Set the repository variables DEV_SUPABASE_URL and DEV_SUPABASE_PUBLISHABLE_KEY (runbook, Publish the web app)."
+            exit 1
+          fi
+          # A pilot address with the dev key (or the reverse) would fail every request during owner testing.
+          if { [ -n "$PILOT_URL" ] && [ -z "$PILOT_KEY" ]; } || { [ -z "$PILOT_URL" ] && [ -n "$PILOT_KEY" ]; }; then
+            echo "::error::Set PILOT_SUPABASE_URL and PILOT_SUPABASE_PUBLISHABLE_KEY together, or neither."
+            exit 1
+          fi
+          # The site is public, so a secret or service role key must never be built into it (NFR-06).
+          for key in "$DEV_KEY" "$PILOT_KEY"; do
+            [ -z "$key" ] && continue
+            case "$key" in
+              sb_secret_*)
+                echo "::error::A secret key is set as a publishable key. Use the project's publishable key (sb_publishable_...)."
+                exit 1
+                ;;
+            esac
+            payload=$(printf '%s' "$key" | cut -s -d. -f2 | tr '_-' '/+')
+            case $(( ${#payload} % 4 )) in 2) payload="${payload}==" ;; 3) payload="${payload}=" ;; esac
+            if [ -n "$payload" ] && printf '%s' "$payload" | base64 -d 2>/dev/null | grep -q '"role" *: *"service_role"'; then
+              echo "::error::A service role key is set as a publishable key. Use the project's publishable (anon) key."
+              exit 1
+            fi
+          done
+      - name: Owners' build at the site root
+        working-directory: web
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+          SUB_APPS: demo/
+          PILOT_URL: ${{ vars.PILOT_SUPABASE_URL }}
+          PILOT_KEY: ${{ vars.PILOT_SUPABASE_PUBLISHABLE_KEY }}
+          DEV_URL: ${{ vars.DEV_SUPABASE_URL }}
+          DEV_KEY: ${{ vars.DEV_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+        run: |
+          export VITE_SUPABASE_URL="${PILOT_URL:-$DEV_URL}"
+          export VITE_SUPABASE_PUBLISHABLE_KEY="${PILOT_KEY:-$DEV_KEY}"
+          npx tsc -b
+          npx vite build --outDir ../site --emptyOutDir
+      - name: Demonstration build under /demo/
+        working-directory: web
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/demo/
+          VITE_SUPABASE_URL: ${{ vars.DEV_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DEV_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+          VITE_HIDE_SCREENS: ${{ vars.DEMO_HIDE_SCREENS }}
+        run: |
+          npx vite build --outDir ../site/demo --emptyOutDir
+          rm -f ../site/demo/404.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

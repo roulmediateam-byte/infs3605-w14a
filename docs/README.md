@@ -8,8 +8,9 @@
 | [security-model.md](security-model.md) | Who may do what, the four layers of checks, threats, secrets and privacy |
 | [api.md](api.md) | Every function the app and the jobs call, and the errors to handle |
 | [business-rules.md](business-rules.md) | Where each business rule and acceptance test is enforced and tested |
-| [testing.md](testing.md) | The four test suites and how to add a test |
-| [runbook.md](runbook.md) | Setting up projects, schedules, manual runs, incidents, onboarding owners and deleting data |
+| [testing.md](testing.md) | The backend and web app test suites, and how to add a test |
+| [runbook.md](runbook.md) | Setting up projects, publishing the web app, schedules, manual runs, incidents, onboarding owners and deleting data |
+| [../web/README.md](../web/README.md) | Running, testing and building the web app, and the click-through preview |
 | [adr/](adr/README.md) | The architecture decisions and why they were made |
 
 The product documents live outside the repository, in the team's Claude Docs: the PRD, the Technical Requirements Document (TRD), the app flow, the UI design brief and the implementation plan. Requirement IDs (FR-, UI-, EM-, AI-, BR-, NFR-, AT-) are the same everywhere.

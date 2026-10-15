@@ -12,6 +12,7 @@
     "test:jobs": "node --test jobs/test/*.test.ts",
     "test:db": "supabase test db",
     "test:db:local": "bash scripts/test-local.sh",
+    "stack": "node scripts/local-stack/gateway.ts",
     "typecheck": "tsc --noEmit",
     "job:weekly-run": "node --env-file-if-exists=.env jobs/weekly-run.ts",
     "job:briefing": "node --env-file-if-exists=.env jobs/briefing.ts",

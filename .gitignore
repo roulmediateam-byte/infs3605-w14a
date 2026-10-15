@@ -2,6 +2,14 @@
 node_modules/
 coverage/
 dist/
+dist-preview/
+site-e2e/
+playwright-report/
+playwright-report-pages/
+test-results/
+
+# The local stack's downloaded PostgREST binary and state (scripts/local-stack)
+.local-stack/
 
 # Local secrets: never commit these (NFR-06). Copy .env.example to .env.
 .env

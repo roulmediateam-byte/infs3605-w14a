@@ -14,5 +14,5 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true
   },
-  "include": ["jobs/**/*.ts"]
+  "include": ["jobs/**/*.ts", "scripts/**/*.ts"]
 }

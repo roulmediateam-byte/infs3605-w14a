@@ -49,7 +49,7 @@ comment on column public.businesses.reply_to_email is 'Where client replies go; 
 comment on column public.businesses.overdue_threshold_days is 'Days past due before a reminder is drafted (BR-01). Default 7; 1 to 60.';
 comment on column public.businesses.cooldown_days is 'No new draft within this many Sydney days of a confirmed send (BR-04). Default 6 (decision D6, proposed).';
 comment on column public.businesses.briefing_weekday is 'ISO weekday of the briefing, 1 = Monday to 5 = Friday (FR-02). Drafting runs on Sunday at 9:00 pm.';
-comment on column public.businesses.briefing_time is 'Briefing slot in Sydney time: 07:00 or 18:00. The job starts 30 minutes earlier (BR-13).';
+comment on column public.businesses.briefing_time is 'Briefing slot in Sydney time: 07:00 or 18:00. The briefing job is due from 45 minutes before it (BR-13).';
 comment on column public.businesses.time_zone is 'Fixed to Australia/Sydney for the PoC.';
 comment on column public.businesses.trust_level is 'Trust ladder rung. Fixed at drafts_only until FR-30 is built.';
 comment on column public.businesses.checker_may_send is 'Decision D3 (proposed): the owner sends; set true when the checker uses the business mailbox.';

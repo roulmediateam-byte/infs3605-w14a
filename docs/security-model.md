@@ -55,6 +55,21 @@ Scheduled jobs use the service role and may call only `job_*` functions. Team ad
 | Formula injection in exports | A client name such as =HYPERLINK(...) runs when the CSV is opened | The app prefixes cells starting with =, +, -, @ or a tab with an apostrophe | FR-03 acceptance test |
 | Data kept too long | Testing ends but data stays | `delete_after` required for real data, and set to Wed 25 Nov 2026 for every owner-testing business by `scripts/onboard-owner.sql`; daily purge; everything deleted from Thu 31 Dec 2026 | 070; scripts check |
 
+## In the browser
+
+The web app holds no secret and decides nothing the server doesn't check again, so these controls protect the person and the device rather than the data's rules (TRD, Web app; ADR 0014).
+
+| Threat | Example | Control | Test |
+| --- | --- | --- | --- |
+| Script injection | A client name that holds HTML | React escapes all text; no raw HTML anywhere; a Content Security Policy meta tag allows only the site's own scripts and connections to the Supabase project; no third-party scripts | `web/e2e/security.spec.ts` |
+| A shared phone | The next person opens the app the owner used | Signing out forgets the session on the device before anything else, even offline with an expired token, and forgets the email, business and open "Did it send?" questions; those questions are kept per person anyway | `web/e2e/sign-in.spec.ts` |
+| Tokens left in the browser's history | Back on a shared computer shows the emailed link's tokens | The app removes the address's fragment with replaceState before starting the session | `web/e2e/sign-in.spec.ts` |
+| Business data left on the device | A cached API answer read later | The service worker caches the app's own files only, in a cache per build; API answers are never cached | `web/e2e/security.spec.ts`, `web/e2e-pages/` |
+| Sessions mixing between the two builds | The demo build sends the owners' token to the dev project | Each Supabase project's session has its own storage key (`gpa.auth.<project host>`) | Code review: `web/src/backend/supabase.ts` (both test builds use one local project) |
+| A secret key published in the site | A service role key pasted as the publishable key | The deploy workflow refuses secret and service role keys | `.github/workflows/pages.yml` |
+| Other sites on the same address | Another Pages site on the account reads this one's storage | Publish from an account or organisation with no other Pages sites, or a custom domain (runbook, "Publish the web app") | Manual check |
+| Redirects to another site | A crafted deep link | `404.html` only redirects within the build's own path; after sign-in, only the app's own addresses are followed | `web/e2e-pages/deep-links.spec.ts` |
+
 ## Secrets
 
 | Secret or variable | Where it lives | Used by |
@@ -64,7 +79,7 @@ Scheduled jobs use the service role and may call only `job_*` functions. Team ad
 | `RESEND_API_KEY` | Actions secret | Briefing, nudge, alerts |
 | `ALERT_EMAIL` | Actions secret (it is a person's address) | Alerts |
 | `SUPABASE_URL`, `SUPABASE_URL_PILOT`, `APP_URL`, `APP_URL_PILOT`, `EMAIL_FROM`, `AI_MODEL`, `JOBS_ENABLED`, `JOB_TARGETS` | Actions variables (not secret) | Jobs |
-| The Supabase publishable (anon) key | The web app's build settings | Browser; safe because RLS does the checking |
+| The Supabase publishable (anon) key | Actions variables `DEV_SUPABASE_PUBLISHABLE_KEY` and `PILOT_SUPABASE_PUBLISHABLE_KEY`, built into the public site | Browser; safe because RLS does the checking |
 
 Rotate a key at once if it may have leaked: create the new one, update the secret, revoke the old one, and record it in the decision log (codes and links only).
 

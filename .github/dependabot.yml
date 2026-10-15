@@ -1,4 +1,9 @@
 # NFR-08: dependency alerts and weekly update pull requests.
+# - Until the course ends (Thu 31 Dec 2026), major versions are held back: they change how tools behave (TypeScript 7,
+#   Vite 8, new action versions) and need planning, not a Monday merge. Security updates still arrive, because an
+#   ignore rule that names update types doesn't apply to them.
+# - Minor and patch updates come as one pull request per folder, so packages that move together (react and
+#   react-dom) stay together and CI runs once, not once per package (Actions minutes on a private repository).
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -8,6 +13,12 @@ updates:
       day: monday
       time: '08:00'
       timezone: Australia/Sydney
+    groups:
+      actions:
+        patterns: ['*']
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -16,6 +27,13 @@ updates:
       time: '08:00'
       timezone: Australia/Sydney
     open-pull-requests-limit: 5
+    groups:
+      jobs-and-tooling:
+        patterns: ['*']
+        update-types: ['minor', 'patch']
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
   # The web app has its own lockfile (TRD, Security: supply chain).
   - package-ecosystem: npm
     directory: /web
@@ -25,3 +43,10 @@ updates:
       time: '08:00'
       timezone: Australia/Sydney
     open-pull-requests-limit: 5
+    groups:
+      web-app:
+        patterns: ['*']
+        update-types: ['minor', 'patch']
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']

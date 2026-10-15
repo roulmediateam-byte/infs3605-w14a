@@ -17,7 +17,7 @@ echo "▶ Creating scratch database ${DB}"
 run_psql -d postgres -c "drop database if exists ${DB}" -c "create database ${DB}"
 
 echo "▶ Supabase stand-ins"
-run_psql -d "${DB}" -f "${ROOT}/supabase/tests/local/supabase_stubs.sql" >/dev/null
+run_psql -d "${DB}" -f "${ROOT}/supabase/local/supabase_stubs.sql" >/dev/null
 
 echo "▶ Migrations"
 for migration in "${ROOT}"/supabase/migrations/*.sql; do

@@ -1,5 +1,7 @@
--- Local-only stand-ins for the parts of Supabase the migrations rely on, so the schema and its pgTAP tests
--- run on a plain PostgreSQL 15+ server without Docker (scripts/test-local.sh).
+-- Local-only stand-ins for the parts of Supabase the migrations rely on, so the schema and its pgTAP tests run on
+-- a plain PostgreSQL 15+ server without Docker (scripts/test-local.sh), behind the web app's local stack
+-- (scripts/local-stack/setup-db.sh) and in the in-browser preview (web/src/backend/preview.ts).
+-- It sits outside supabase/tests so that `supabase test db` doesn't try to run it as a test file.
 -- Never run this against a Supabase project: Supabase already provides all of it.
 
 do $$

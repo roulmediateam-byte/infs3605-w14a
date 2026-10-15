@@ -12,7 +12,7 @@ DB="${LOCAL_DB:-getpaid_dev}"
 run_psql() { PGOPTIONS='-c client_min_messages=warning' psql -X -q -v ON_ERROR_STOP=1 "$@"; }
 
 run_psql -d postgres -c "drop database if exists ${DB} with (force)" -c "create database ${DB}" >/dev/null
-run_psql -d "${DB}" -f "${ROOT}/supabase/tests/local/supabase_stubs.sql" >/dev/null
+run_psql -d "${DB}" -f "${ROOT}/supabase/local/supabase_stubs.sql" >/dev/null
 for migration in "${ROOT}"/supabase/migrations/*.sql; do
   run_psql -d "${DB}" -f "${migration}" >/dev/null
 done

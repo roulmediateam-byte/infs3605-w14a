@@ -4,7 +4,7 @@
 // PostgREST would set. Only sign-in differs: there is no email, so the code is shown on screen.
 // Nothing leaves the browser, and a reload starts again from the seed.
 import type { PGlite, Transaction } from '@electric-sql/pglite';
-import stubsSql from '../../../supabase/tests/local/supabase_stubs.sql?raw';
+import stubsSql from '../../../supabase/local/supabase_stubs.sql?raw';
 import seedSql from '../../../supabase/seed.sql?raw';
 import type { LogEntry } from '../lib/activity.ts';
 import { AppError, fromDatabaseError, MESSAGES } from './errors.ts';

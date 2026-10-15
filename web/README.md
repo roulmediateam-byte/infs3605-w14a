@@ -70,7 +70,7 @@ Because GitHub Pages cannot send response headers, the build adds a Content Secu
 
 ## The click-through preview
 
-The preview is the same app with its backend swapped for PGlite, PostgreSQL compiled to WebAssembly. It runs `supabase/tests/local/supabase_stubs.sql`, the seven migrations and the seed in the browser, so every click goes through the real functions, row-level security and role checks. It is for showing the app to people who have no local stack; it is not a test environment.
+The preview is the same app with its backend swapped for PGlite, PostgreSQL compiled to WebAssembly. It runs `supabase/local/supabase_stubs.sql`, the seven migrations and the seed in the browser, so every click goes through the real functions, row-level security and role checks. It is for showing the app to people who have no local stack; it is not a test environment.
 
 ```bash
 VITE_BACKEND=preview npx vite build --outDir dist-preview --emptyOutDir

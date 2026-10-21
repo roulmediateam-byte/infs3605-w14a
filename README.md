@@ -100,4 +100,4 @@ The sign-in code is at http://127.0.0.1:54321/__local/codes?email=owner@example.
 
 This is coursework for INFS3605 at UNSW. All rights reserved by Team W14A-5.
 
-AI use: Team W14A-5 used [AI tools: completed at final assembly] to help draft and structure this document. Every claim, figure and quote was checked against its source by a team member, and the team takes responsibility for the content.
+AI use: Team W14A-5 used [AI tools: completed at final assembly] to help draft and structure this document and to write and test the code in this repository. Every claim, figure and quote was checked against its source by a team member, and the team takes responsibility for the content.

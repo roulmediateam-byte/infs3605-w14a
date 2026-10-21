@@ -227,7 +227,11 @@ export const SettingsScreen = () => {
       return;
     }
     setDeleteOpen(false);
-    await signOut('Your business data has been deleted. Your sign-in goes within 14 days.');
+    await signOut(
+      backend.preview
+        ? 'Your business data has been deleted. Reload to start the demo again with fresh Test data.'
+        : 'Your business data has been deleted. Your sign-in goes within 14 days.',
+    );
   };
 
   const nameMatches = typedName.trim().toLowerCase() === b.name.trim().toLowerCase();

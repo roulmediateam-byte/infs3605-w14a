@@ -8,6 +8,7 @@ import { useOnline } from './online.ts';
 import { useBriefing, useBusinessRecord } from './queries.ts';
 import { Link, type RouteName } from './router.tsx';
 import { useBackend } from './session.tsx';
+import type { PreviewStorage } from '../backend/types.ts';
 import { Banner } from '../ui/controls.tsx';
 import { XeroOffSteps } from '../ui/XeroSteps.tsx';
 
@@ -20,6 +21,14 @@ interface NavItem {
 }
 
 const MORE_ROUTES: RouteName[] = ['more', 'import', 'log', 'settings'];
+
+/** What a reload does to the preview's data, in the strip's "Details" (src/backend/preview-store.ts). */
+const keptNote = (storage: PreviewStorage): string =>
+  storage.mode === 'stored'
+    ? 'Your changes stay in this browser until you reset the demo under More.'
+    : storage.reason === 'other-tab'
+      ? "The demo is open in another tab, so this tab's changes go when you reload."
+      : "This browser can't keep the demo's data, so a reload starts again.";
 
 export const Shell = ({ route, children }: { route: RouteName; children: ReactNode }) => {
   const briefing = useBriefing();
@@ -54,7 +63,7 @@ export const Shell = ({ route, children }: { route: RouteName; children: ReactNo
                 <ChevronDown size={16} strokeWidth={1.5} aria-hidden="true" />
               </span>
             </summary>
-            <p className="data-strip-note">This copy of the app runs in your browser, with the same rules as the real one. A reload starts again from the same Test data.</p>
+            <p className="data-strip-note">This copy of the app runs in your browser, with the same rules as the real one. {keptNote(backend.preview.storage)}</p>
           </details>
         ) : (
           <p className="data-strip-line">

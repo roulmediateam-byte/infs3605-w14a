@@ -28,6 +28,7 @@ import { firstName, NOT_SENT_YET, overdueChip, pluralise, sentLeftToSend } from 
 import { Banner, Button, Chip, EmptyState, FormError, PageTitle, Skeleton } from '../ui/controls.tsx';
 import { isPausedOffline, NoData } from '../ui/QueryState.tsx';
 import { ClientSheet } from './clients/ClientSheet.tsx';
+import { DemoGuide } from './DemoGuide.tsx';
 import { InvoiceSheet } from './invoices/InvoiceSheet.tsx';
 import { SendSheet } from './review/SendSheet.tsx';
 
@@ -238,8 +239,8 @@ export const HomeScreen = () => {
         )}
       </section>
 
-      {/* DEMO GUIDE CARD MOUNT POINT: the coordinator mounts the preview-only "Try the Week 7 demo" card here, right
-          after the decision card and before Ready to send. */}
+      {/* Preview only: the "Try the Week 7 demo" card. It renders nothing in the real app. */}
+      <DemoGuide />
 
       {readyToSend.length > 0 && sends ? (
         <section aria-labelledby="ready-heading">

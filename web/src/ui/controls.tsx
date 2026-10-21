@@ -1,6 +1,6 @@
 // Base components (UI brief, Components). Each is built once and reused, never restyled per screen, and none
 // ships without its focus and busy states.
-import { CircleAlert, Info, TriangleAlert } from 'lucide-react';
+import { CircleAlert, Info } from 'lucide-react';
 import {
   useEffect,
   useId,
@@ -263,7 +263,7 @@ export const Choices = <T extends string>({
 // ---------------------------------------------------------------------------------------------
 export const Banner = ({ tone = 'info', children, role }: { tone?: 'info' | 'warning'; children: ReactNode; role?: 'status' | 'alert' }) => (
   <div className={`banner${tone === 'warning' ? ' banner-warning' : ''}`} role={role}>
-    {tone === 'warning' ? <TriangleAlert size={20} strokeWidth={1.5} aria-hidden="true" /> : <Info size={20} strokeWidth={1.5} aria-hidden="true" />}
+    {tone === 'warning' ? <CircleAlert size={20} strokeWidth={1.5} aria-hidden="true" /> : <Info size={20} strokeWidth={1.5} aria-hidden="true" />}
     <div>{children}</div>
   </div>
 );

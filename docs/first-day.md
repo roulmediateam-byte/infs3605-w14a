@@ -44,13 +44,13 @@ Try the review loop: open Review, approve a draft, then send it. Under More, "Ru
 | `scripts/` | The local stack, test runners, the hygiene check and the check that picks CI's jobs |
 | `docs/` | How it works: data model, security model, testing, runbook and decision records |
 | `.github/` | Continuous integration (CI), the scheduled workflows, issue forms and the pull request template |
-| `planning/backlog.csv` | The backlog that the GitHub issues came from |
+| `planning/backlog.csv` | The backlog, 79 items; `scripts/bootstrap-github.sh` turns it into GitHub issues |
 
 IDs connect everything. FR is a functional requirement, NFR a non-functional one, UI a screen and EM an email. AI is an AI-behaviour rule, BR a business rule, AT an acceptance test and ADR an architecture decision record. Tests are named by the ID they prove.
 
 ## Make a change
 
-1. Take an issue you own from "This sprint" on the board. If it isn't ready, raise it at stand-up.
+1. Take a backlog item you own. Until the Scrum Master turns the backlog into GitHub issues and a board (`scripts/bootstrap-github.sh`), work from `planning/backlog.csv`. If an item isn't ready, raise it at stand-up.
 2. Branch from `main`, named by kind and then ID: `feat/fr-14-review-one-draft`, `fix/…` or `docs/…`.
 3. Open a draft pull request as soon as you first push, using the template. A draft runs the quick checks only.
 4. When the checks pass and the work is done, select "Ready for review". That run adds the browser tests.

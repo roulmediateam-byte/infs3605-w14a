@@ -396,8 +396,10 @@ a {
     line-height: 24px;
   }
 
-  .nav-link:hover {
-    background: var(--surface-locked);
+  @media (hover: hover) {
+    .nav-link:hover {
+      background: var(--surface-locked);
+    }
   }
 
   .nav-link[aria-current='page'] {
@@ -452,6 +454,65 @@ a {
   margin: 0 auto var(--space-5);
 }
 
+/* The preview and Test data share one compact strip (UI brief: the Test data banner), at most two lines on a phone. */
+.data-strip {
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.data-strip + .banner,
+.banner + .data-strip {
+  margin-top: var(--space-2);
+}
+
+.data-strip-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-1) var(--space-3);
+}
+
+summary.data-strip-line {
+  cursor: pointer;
+  list-style: none;
+}
+
+summary.data-strip-line::-webkit-details-marker {
+  display: none;
+}
+
+.data-strip-icon {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+.data-strip-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.data-strip-more {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.data-strip details[open] .data-strip-more svg {
+  transform: rotate(180deg);
+}
+
+.data-strip-note {
+  padding: 0 var(--space-3) var(--space-2) calc(var(--space-3) + 16px + var(--space-2));
+  color: var(--text-secondary);
+}
+
 /* ---------------------------------------------------------------------------------------------
    Buttons: one primary per screen; busy shows progress and ignores taps (UI brief, Components)
    --------------------------------------------------------------------------------------------- */
@@ -491,8 +552,11 @@ a {
   color: var(--on-accent);
 }
 
-.btn-primary:hover {
-  background: var(--accent-hover);
+/* Hover styles only where a pointer can hover: on a touch screen they would stick after a tap. */
+@media (hover: hover) {
+  .btn-primary:hover {
+    background: var(--accent-hover);
+  }
 }
 
 .btn-primary:active {
@@ -505,8 +569,10 @@ a {
   color: var(--text);
 }
 
-.btn-secondary:hover {
-  background: var(--surface);
+@media (hover: hover) {
+  .btn-secondary:hover {
+    background: var(--surface);
+  }
 }
 
 .btn-quiet {
@@ -516,8 +582,10 @@ a {
   color: var(--accent);
 }
 
-.btn-quiet:hover {
-  background: var(--surface);
+@media (hover: hover) {
+  .btn-quiet:hover {
+    background: var(--surface);
+  }
 }
 
 .btn-danger {
@@ -525,8 +593,10 @@ a {
   color: var(--on-danger);
 }
 
-.btn-danger:hover {
-  background: var(--danger-hover);
+@media (hover: hover) {
+  .btn-danger:hover {
+    background: var(--danger-hover);
+  }
 }
 
 .btn-danger-outline {
@@ -545,8 +615,15 @@ a {
   color: var(--text-secondary);
 }
 
-.btn-secondary[aria-disabled='true']:not([aria-busy='true']) {
+.btn-secondary[aria-disabled='true']:not([aria-busy='true']),
+.btn-quiet[aria-disabled='true']:not([aria-busy='true']) {
   color: var(--text-secondary);
+}
+
+/* A quiet button that can't be used yet (such as "Send a new code" during its wait) mustn't look like a live link. */
+.btn-quiet[aria-disabled='true']:not([aria-busy='true']) {
+  background: none;
+  text-decoration: none;
 }
 
 .btn[aria-busy='true'] {
@@ -589,8 +666,10 @@ a {
   cursor: pointer;
 }
 
-.icon-button:hover {
-  background: var(--surface);
+@media (hover: hover) {
+  .icon-button:hover {
+    background: var(--surface);
+  }
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -684,9 +763,11 @@ a.list-row {
   border-radius: var(--radius);
 }
 
-button.list-row:hover,
-a.list-row:hover {
-  background: var(--surface);
+@media (hover: hover) {
+  button.list-row:hover,
+  a.list-row:hover {
+    background: var(--surface);
+  }
 }
 
 .list-main {
@@ -974,6 +1055,16 @@ a.list-row:hover {
   padding: var(--space-4) var(--space-4) var(--space-2) var(--space-5);
 }
 
+.sheet-head h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Close keeps its full 44 by 44 px however long the title is. */
+.sheet-head .icon-button {
+  flex: none;
+}
+
 .sheet-body {
   flex: 1 1 auto;
   overflow-y: auto;
@@ -1023,11 +1114,32 @@ a.list-row:hover {
   pointer-events: none;
 }
 
-/* Inside an open sheet, messages sit at the top of the screen, clear of the sheet's buttons. */
-dialog .toast-region {
-  top: var(--space-4);
-  bottom: auto;
-  left: var(--page-pad);
+/* Inside an open sheet, a message is a status line under its header, in the flow: it never covers the title, the
+   Close button or anything else, so holding it open can't trap the pointer. */
+.sheet-status .toast-region {
+  position: static;
+  display: block;
+  padding: 0 var(--space-5);
+  pointer-events: auto;
+}
+
+.sheet-status .toast {
+  max-width: none;
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: none;
+  animation: none;
+}
+
+.sheet-status .toast-action {
+  color: var(--accent);
+}
+
+.sheet-status .toast-action:focus-visible {
+  outline-color: var(--accent);
 }
 
 .toast {
@@ -1092,8 +1204,10 @@ dialog .toast-region {
   text-decoration: none;
 }
 
-a.figure-link:hover {
-  background: var(--surface);
+@media (hover: hover) {
+  a.figure-link:hover {
+    background: var(--surface);
+  }
 }
 
 .action-card {
@@ -1236,8 +1350,10 @@ a.figure-link:hover {
   cursor: pointer;
 }
 
-.queue-item:hover {
-  background: var(--surface);
+@media (hover: hover) {
+  .queue-item:hover {
+    background: var(--surface);
+  }
 }
 
 .queue-item[aria-current='true'] {
@@ -1326,8 +1442,10 @@ button.fact {
   border-radius: 4px;
 }
 
-button.fact:hover .fact-value {
-  text-decoration: underline;
+@media (hover: hover) {
+  button.fact:hover .fact-value {
+    text-decoration: underline;
+  }
 }
 
 .fact-name {
@@ -1670,9 +1788,11 @@ button.fact:hover .fact-value {
   cursor: pointer;
 }
 
-.menu > li > a:hover,
-.menu > li > button:hover {
-  background: var(--surface);
+@media (hover: hover) {
+  .menu > li > a:hover,
+  .menu > li > button:hover {
+    background: var(--surface);
+  }
 }
 
 .menu .chev {

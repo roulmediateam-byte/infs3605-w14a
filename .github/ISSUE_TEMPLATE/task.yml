@@ -1,0 +1,61 @@
+name: Task
+description: Work that isn't a requirement, a screen or a bug, such as setup, operations, quality checks or a course deliverable.
+title: "Task: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One task, one owner and one "done when". Use Test data only: never paste real names, emails, amounts or screenshots of real data (NFR-04).
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: What needs doing and why, in one or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: done-when
+    attributes:
+      label: Done when
+      description: Checks anyone can make to see it is finished.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: dropdown
+    id: owner-role
+    attributes:
+      label: Owner role
+      options:
+        - Scrum Master
+        - Product Owner
+        - Dev lead
+        - Dev 2 (jobs and AI)
+        - UX lead
+    validations:
+      required: true
+  - type: input
+    id: due
+    attributes:
+      label: Due date
+      description: With the weekday, for example Fri 23 Oct 2026.
+      placeholder: Fri 23 Oct 2026
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Add the matching area label too, for example area:web.
+      multiple: true
+      options:
+        - Database (area:db)
+        - Scheduled jobs and emails (area:jobs)
+        - Web app (area:web)
+        - AI step and prompts (area:ai)
+        - Privacy, retention and deletion (area:privacy)
+        - Documents and evidence (area:docs)
+        - Testing and quality (area:quality)
+        - Operations (area:ops)
+    validations:
+      required: true

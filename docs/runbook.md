@@ -14,7 +14,7 @@ How to set up, run and recover the service. Every step uses Test data unless an 
    - variables `SUPABASE_URL` (dev), `SUPABASE_URL_PILOT`, `APP_URL` (the demo build), `APP_URL_PILOT` (the owners' build), `EMAIL_FROM`, `AI_MODEL` (`claude-haiku-5-5`);
    - variable `JOB_TARGETS`: `["dev"]` until owner testing starts on Mon 2 Nov 2026, then `["dev","pilot"]`. The dev project keeps running after that, because the video (Thu 12 Nov) and the Week 10 Showcase are demonstrated on it, and its daily health check stops the free database from pausing.
 7. Set the variable `JOBS_ENABLED` to `true` to switch the schedules on. Set it to `false` to stop them at once, on both projects.
-8. Protect `main`: require a pull request, one approving review and the CI checks (NFR-08). Turn on Dependabot alerts.
+8. Protect `main`: require a pull request, one approving review and the CI checks (NFR-08). Turn on Dependabot alerts. The exact settings are in the "Owner settings checklist" below.
 9. Web app builds (SET-08): until Mon 2 Nov 2026 both builds use the dev project. From then on the owners' build at the site root uses the pilot project, and the demo build under `/demo/` stays on dev. Add both addresses to each project's redirect list. The navigation shows a screen only once it has passed its tests, so no build has a dead link. Steps in "Publish the web app" below.
 
 ## Publish the web app
@@ -34,6 +34,24 @@ GitHub Pages serves the app; the site is public even from a private repository, 
 7. To roll back, revert the pull request; the site republishes from `main`.
 
 The workflow refuses to publish when the pilot address and key aren't set together, or when a key looks like a secret or service role key. Every Pages site on one account shares one web address (`OWNER.github.io`), and pages there can read each other's browser storage. So publish from an account or organisation with no other Pages sites, or give the site its own custom domain.
+
+## Owner settings checklist
+
+Only the account that owns the repository, `roulmediateam-byte`, can change these settings: collaborators have write access only. "Needs Pro" means the setting works on this private repository only once that account has GitHub Pro.
+
+1. **GitHub Pro on the owning account (the Pro item itself).** Apply through the GitHub Student Developer Pack, then confirm the plan on the account's billing page. Actions minutes and plan features follow the account that owns the repository, not the person who pushes. Pro gives 3,000 Actions minutes a month instead of 2,000, protected branches and GitHub Pages for a private repository.
+2. **Actions usage alerts and a budget (any plan).** Billing and licensing > Budgets and alerts: under "Included usage alerts", tick "Receive alerts when my included usage reaches 90% and 100%". If a payment method is ever added, also create an Actions budget with "Stop usage when budget limit is reached". Without a payment method, every workflow stops when the month's minutes run out, the scheduled briefings included.
+3. **Protect `main` (needs Pro), after the CI change that adds the `checks` job has merged.** In Settings > Branches, add a branch protection rule for `main`:
+   - Require a pull request before merging, with 1 approval.
+   - Require status checks to pass: `checks`, `database` and `web`. They can be picked once CI has run with these names. Never require "Prompt evaluation": it runs only when the prompt changes, so other pull requests would wait for it forever.
+   - Leave "Require branches to be up to date before merging" off. Otherwise every merge makes each open pull request run CI again.
+   - Require conversation resolution before merging.
+   - Leave force pushes and deletions off.
+   - Leave "Do not allow bypassing the above settings" off, so admins are exempt and the owner keeps an emergency merge in demonstration week.
+4. **Squash merging only (any plan).** Settings > General > Pull Requests: keep "Allow squash merging" and choose the pull request title as its default message. Turn off merge commits and rebase merging.
+5. **Automatically delete head branches (any plan).** On the same page, tick "Automatically delete head branches".
+6. **Dependabot alerts and security updates (any plan).** In the repository's security settings, turn both on. Security fixes keep arriving while version updates are paused.
+7. **Resume Dependabot version updates after Thu 29 Oct 2026 (any plan).** In `.github/dependabot.yml`, restore `open-pull-requests-limit` to 5 on all three entries, through a pull request. Dependabot opens updates again at its next Monday run, at 8:00 am Sydney time.
 
 ## Board
 

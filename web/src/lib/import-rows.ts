@@ -3,6 +3,7 @@
 // The server still reads every value again and refuses the import if its count or total differs.
 import { parseAuDate } from './dates.ts';
 import { parseAmountCents, trimSpaces } from './money.ts';
+import { listCounts, pluralise, type CancelReason } from './words.ts';
 
 export const IMPORT_FIELDS = ['client', 'email', 'contact', 'invoice_number', 'issue_date', 'due_date', 'amount_due'] as const;
 export type ImportField = (typeof IMPORT_FIELDS)[number];
@@ -223,6 +224,24 @@ export interface ExistingInvoice {
   client_name: string;
 }
 
+/** An open invoice that isn't in the file, so the import closes it (BR-03). */
+export interface ClosingInvoice {
+  invoiceNumber: string;
+  clientName: string;
+  amountDueCents: number;
+  dueDate: string;
+}
+
+/** Why confirm_import cancels a live reminder: its invoice closes, or its amount or due date changed (BR-03, BR-05). */
+export type ImportCancelReason = Extract<CancelReason, 'invoice_closed' | 'amount_changed' | 'due_date_changed'>;
+
+/** A live reminder (waiting for review, or approved and not sent yet) that the import cancels. */
+export interface CancelledReminder {
+  invoiceNumber: string;
+  clientName: string;
+  reason: ImportCancelReason;
+}
+
 export interface ImportPlan {
   rowsRead: number;
   rowsSaved: number;
@@ -233,13 +252,25 @@ export interface ImportPlan {
   updated: number;
   reopened: number;
   keptPaid: number;
+  /** Rows that match an open invoice exactly: saved, but nothing about the invoice changes. */
+  unchanged: number;
   closed: number;
   draftsCancelled: number;
   newClients: number;
   openBefore: number;
   massClose: boolean;
   problems: { row: number; reason: string }[];
+  /** The invoices that will close, by invoice number (closingInvoices.length === closed). */
+  closingInvoices: ClosingInvoice[];
+  /**
+   * The reminders that will be cancelled, by invoice number. An invoice has at most one live reminder
+   * (reminder_drafts_one_live), so cancelledReminders.length === draftsCancelled.
+   */
+  cancelledReminders: CancelledReminder[];
 }
+
+const byInvoiceNumber = (a: { invoiceNumber: string }, b: { invoiceNumber: string }): number =>
+  a.invoiceNumber.localeCompare(b.invoiceNumber, 'en-AU', { numeric: true });
 
 export const planImport = (
   rows: CheckedRow[],
@@ -253,7 +284,9 @@ export const planImport = (
   let updated = 0;
   let reopened = 0;
   let keptPaid = 0;
+  let unchanged = 0;
   let draftsCancelled = 0;
+  const cancelledReminders: CancelledReminder[] = [];
   for (const row of valid) {
     const current = row.invoiceNumber === null ? undefined : byNumber.get(row.invoiceNumber);
     if (!current) {
@@ -268,6 +301,14 @@ export const planImport = (
     const live = liveDraftsByInvoice.get(current.id) ?? 0;
     if (current.status === 'open' && (current.amount_due_cents !== amount || current.due_date !== row.dueDate)) {
       draftsCancelled += live;
+      if (live > 0) {
+        cancelledReminders.push({
+          invoiceNumber: current.invoice_number,
+          clientName: current.client_name,
+          // confirm_import checks the amount first, so a row that changes both is cancelled for its amount.
+          reason: current.amount_due_cents !== amount ? 'amount_changed' : 'due_date_changed',
+        });
+      }
     }
     if (current.status === 'closed') reopened += 1;
     else if (
@@ -277,12 +318,18 @@ export const planImport = (
       current.client_name.replace(/^ +| +$/g, '').toLowerCase() !== row.clientKey
     ) {
       updated += 1;
+    } else {
+      unchanged += 1;
     }
   }
   const inFile = new Set(rows.map((row) => row.invoiceNumber).filter((number): number is string => number !== null));
   const open = existing.filter((invoice) => invoice.status === 'open');
   const closing = open.filter((invoice) => !inFile.has(invoice.invoice_number));
-  for (const invoice of closing) draftsCancelled += liveDraftsByInvoice.get(invoice.id) ?? 0;
+  for (const invoice of closing) {
+    const live = liveDraftsByInvoice.get(invoice.id) ?? 0;
+    draftsCancelled += live;
+    if (live > 0) cancelledReminders.push({ invoiceNumber: invoice.invoice_number, clientName: invoice.client_name, reason: 'invoice_closed' });
+  }
   const newClientKeys = new Set(valid.map((row) => row.clientKey).filter((key): key is string => key !== null && !existingClientKeys.has(key)));
   return {
     rowsRead: rows.length,
@@ -294,11 +341,106 @@ export const planImport = (
     updated,
     reopened,
     keptPaid,
+    unchanged,
     closed: closing.length,
     draftsCancelled,
     newClients: newClientKeys.size,
     openBefore: open.length,
     massClose: closing.length > 5 && closing.length * 2 > open.length,
     problems: rows.filter((row) => row.error !== null).map((row) => ({ row: row.input.row, reason: row.error ?? '' })),
+    closingInvoices: closing
+      .map((invoice) => ({
+        invoiceNumber: invoice.invoice_number,
+        clientName: invoice.client_name,
+        amountDueCents: invoice.amount_due_cents,
+        dueDate: invoice.due_date,
+      }))
+      .sort(byInvoiceNumber),
+    cancelledReminders: cancelledReminders.sort(byInvoiceNumber),
   };
+};
+
+// ---------------------------------------------------------------------------------------------
+// The Check step's words (UI-08). Every combination says what will really happen, so "nothing changes" is never
+// said while an invoice closes or a reminder is cancelled.
+// ---------------------------------------------------------------------------------------------
+export interface PlanWords {
+  /** Saved and skipped rows, then closures and cancelled reminders (App Flow, Journey 4, step 4). */
+  headline: string;
+  /** What happens to the invoices that are saved; null when none can be. */
+  detail: string | null;
+  /** Over the list of invoices that will close; null when none will. */
+  closing: { heading: string; explanation: string } | null;
+  /** Over the list of reminders that will be cancelled; null when none will. */
+  cancelled: { heading: string; explanation: string } | null;
+  /** The warning when the file would close most open invoices (the TRD's mass-close guard); null otherwise. */
+  massClose: { title: string; body: string } | null;
+}
+
+export const planWords = (plan: ImportPlan): PlanWords => {
+  // Nothing can be imported, so nothing closes either: the import button stays unavailable.
+  if (plan.rowsSaved === 0) return { headline: 'No rows can be imported.', detail: null, closing: null, cancelled: null, massClose: null };
+
+  const saved = `${pluralise(plan.rowsSaved, 'invoice')} will be saved${plan.rowsSkipped > 0 ? ` and ${pluralise(plan.rowsSkipped, 'row')} skipped` : ''}.`;
+  const reminders = pluralise(plan.draftsCancelled, 'reminder');
+  const removed =
+    plan.closed > 0
+      ? ` ${pluralise(plan.closed, 'invoice')} ${plan.closed === 1 ? "isn't" : "aren't"} in this file and will be closed${
+          plan.draftsCancelled > 0 ? `, and ${reminders} will be cancelled` : ''
+        }.`
+      : plan.draftsCancelled > 0
+        ? ` ${reminders} will be cancelled.`
+        : '';
+
+  let detail: string;
+  if (plan.unchanged === plan.rowsSaved && plan.newClients === 0) {
+    const one = plan.rowsSaved === 1;
+    detail =
+      plan.closed === 0 && plan.draftsCancelled === 0
+        ? `Nothing changes. ${one ? 'The invoice in this file matches' : `The ${plan.rowsSaved} invoices in this file match`} your records.`
+        : `${one ? 'The invoice in this file is' : `The ${plan.rowsSaved} invoices in this file are`} unchanged.`;
+  } else {
+    detail = `${listCounts([
+      [plan.added, 'new'],
+      [plan.updated, 'changed'],
+      [plan.reopened, 'reopened'],
+      [plan.keptPaid, 'already marked paid'],
+      [plan.unchanged, 'unchanged'],
+      [plan.newClients, plan.newClients === 1 ? 'new client' : 'new clients'],
+    ])}.`;
+  }
+
+  return {
+    headline: `${saved}${removed}`,
+    detail,
+    // What closing means (BR-03): the invoice left the export, which usually means it was paid.
+    closing:
+      plan.closed > 0
+        ? {
+            heading: `${pluralise(plan.closed, 'invoice')} will be closed`,
+            explanation:
+              plan.closed === 1
+                ? 'Not in this file, so it will be closed. That usually means it was paid in Xero.'
+                : 'Not in this file, so they will be closed. That usually means they were paid in Xero.',
+          }
+        : null,
+    cancelled:
+      plan.draftsCancelled > 0
+        ? { heading: `${reminders} will be cancelled`, explanation: plan.draftsCancelled === 1 ? "It won't be sent." : "They won't be sent." }
+        : null,
+    massClose: plan.massClose
+      ? {
+          title: `This file would close ${plan.closed} of your ${plan.openBefore} open invoices.`,
+          // The dialog that follows says "Check it is your full list of unpaid invoices, then confirm again."
+          body: "Check it is your full list of unpaid invoices. If it isn't, choose another file.",
+        }
+      : null,
+  };
+};
+
+/** Why each reminder is cancelled, as the Check step lists it. */
+export const CANCELLED_BECAUSE: Record<ImportCancelReason, string> = {
+  invoice_closed: 'Not in this file',
+  amount_changed: 'Amount changed',
+  due_date_changed: 'Due date changed',
 };

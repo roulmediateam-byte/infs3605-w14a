@@ -1,17 +1,57 @@
 # Testing
 
-Automated tests guard the behaviour that matters most: nothing is sent without approval, and nothing shows a wrong amount or date. Four suites cover the backend and four the web app.
+Automated tests guard the behaviour that matters most: nothing is sent without approval, and nothing shows a wrong amount or date. Four suites cover the backend and four the web app. Continuous integration (CI) on GitHub runs most of them; [What CI runs, and when](#what-ci-runs-and-when) says which run for each change.
 
 | Suite | What it proves | How to run | Where it runs |
 | --- | --- | --- | --- |
-| Database (pgTAP), 235 tests in 8 files | Business rules BR-01 to BR-15, acceptance tests AT-01 to AT-10, permissions, row-level security, the append-only log, retention, and the security conventions | `supabase test db`, or `scripts/test-local.sh` without Docker | Every pull request (CI) |
-| Job code (Node), 34 tests | The AI request holds only five fields (AI-03); one retry then the template (AI-07); emails render correctly, with preview text and no time-of-day greeting; a forced briefing gets its own email key; jobs record success and failure | `npm test` | Every pull request (CI) |
+| Database (pgTAP), 235 tests in 8 files | Business rules BR-01 to BR-15, acceptance tests AT-01 to AT-10, permissions, row-level security, the append-only log, retention, and the security conventions | `supabase test db`, or `scripts/test-local.sh` without Docker | CI, "database" job, when `supabase/` changes |
+| Job code (Node), 34 tests | The AI request holds only five fields (AI-03); one retry then the template (AI-07); emails render correctly, with preview text and no time-of-day greeting; a forced briefing gets its own email key; jobs record success and failure | `npm test` | CI, "checks" job, on every change |
 | End-to-end (local) | The job code and the database agree on every function, argument and result; a weekly run and a briefing work start to finish; the demonstration-inbox and owner-onboarding scripts produce the expected records and refuse bad input | `scripts/test-local.sh` runs it last | Locally, before merging job or schema changes |
 | Prompt evaluation, 30 cases | Real model replies pass AI-06 across 3 tones and 10 situations; a teammate reads 10 for tone | `npm run eval:prompt` | Pull requests that change `prompts/` |
-| Web app units (Vitest), 21 tests | Money and Sydney dates; CSV import rules and column matching; locked facts and the email link; the review session, including drafts that leave it; activity sentences; CSV export guards formula cells | `cd web && npm test` | Every pull request (CI, "web" job) |
-| Web app parity, 877 inputs | The browser's import and edit checks agree with the database's functions, so the preview of an import matches what is saved | `node web/scripts/check-parity.ts` (needs the local database) | Every pull request (CI) |
-| Web app end to end (Playwright with axe), 45 tests, each on a phone (390 px) and a computer (1280 px) | The screens against the real functions: sign-in by code and by link, signing out (also offline), the review loop, import, two people deciding, every other screen, offline states, accessibility (WCAG 2.2 AA rules, focus never under a sticky bar, 320 px layout), the security policy | `cd web && npm run build:e2e && npx playwright test`, with the local stack running (`web/README.md`) | Every pull request (CI) |
-| Web app as GitHub Pages serves it (Playwright), 6 tests on a phone | Deep links through `404.html`, the root and `/demo/` builds side by side with separate caches, and the speed budgets: largest content within 2.5 s and layout shift under 0.1 on first load, progress within 200 ms of a tap, an approval back within 1 s | `cd web && npm run build:pages-e2e && npm run test:pages` | Every pull request (CI) |
+| Web app units (Vitest), 21 tests | Money and Sydney dates; CSV import rules and column matching; locked facts and the email link; the review session, including drafts that leave it; activity sentences; CSV export guards formula cells | `cd web && npm test` | CI, "web" job, when the web app or the database changes |
+| Web app parity, 877 inputs | The browser's import and edit checks agree with the database's functions, so the preview of an import matches what is saved | `node web/scripts/check-parity.ts` (needs the local database) | CI, "web" job, as above |
+| Web app end to end (Playwright with axe), 45 tests, each on a phone (390 px) and a computer (1280 px) | The screens against the real functions: sign-in by code and by link, signing out (also offline), the review loop, import, two people deciding, every other screen, offline states, accessibility (WCAG 2.2 AA rules, focus never under a sticky bar, 320 px layout), the security policy | `cd web && npm run build:e2e && npx playwright test`, with the local stack running (`web/README.md`) | CI, "web" job: both screens on ready pull requests and manual runs, the phone only on pushes to `main`, none on drafts |
+| Web app as GitHub Pages serves it (Playwright), 6 tests on a phone | Deep links through `404.html`, the root and `/demo/` builds side by side with separate caches, and the speed budgets: largest content within 2.5 s and layout shift under 0.1 on first load, progress within 200 ms of a tap, an approval back within 1 s | `cd web && npm run build:pages-e2e && npm run test:pages` | CI, "web" job, whenever the end-to-end tests run |
+
+## What CI runs, and when
+
+CI runs only the jobs a change can affect, so a run bills 1–11 minutes instead of 12. GitHub rounds each job up to a whole minute and bills it to the account that owns the repository. The scheduled briefings and health checks draw on the same monthly allowance, so wasted CI minutes could stop them.
+
+- `checks` runs on every change: the secret and personal-data scan, then the scheduled-job types and unit tests. It also works out which other jobs the change needs (`scripts/ci-changes.sh`).
+- `database` runs when `supabase/` or `scripts/test-local.sh` changes: the migrations, the seed and the pgTAP tests.
+- `web` runs when `web/`, `supabase/`, `scripts/local-stack/`, `scripts/gen-web-types.ts` or `scripts/make-demo-csv.sql` changes. The web tests build their database from the real migrations and seed.
+- All three run when a file they share changes: `.github/workflows/ci.yml`, `scripts/ci-changes.sh`, the root `package.json` or `package-lock.json`, `.nvmrc` or `.gitattributes`.
+- All three also run when the change can't be worked out: a manual run, a force push or a new branch.
+
+A skipped job shows "This check was skipped" and counts as passed, so all three can be required checks. If `checks` fails, the other two are skipped until it passes, and the pull request stays blocked by `checks`. A new push to a pull request cancels the run it replaces. Runs on `main` and manual runs are never cancelled.
+
+| Event | What changed | Jobs that run | Browser tests | Billed minutes (expected) |
+| --- | --- | --- | --- | --- |
+| Any | Docs only: `docs/`, the root Markdown files, `planning/`, issue and pull request templates | `checks` | None | 1 |
+| Any | Scheduled-job code or prompts only (`jobs/`, `prompts/`) | `checks` | None | 1 |
+| Draft pull request | The web app only (`web/`) | `checks`, `web` | None: types, unit tests, build and size budget only | 2 |
+| Ready pull request | The web app only | `checks`, `web` | Phone and computer, then the 6 Pages tests | 9 |
+| Push to `main` | The web app only | `checks`, `web` | Phone only, then the 6 Pages tests | 6 |
+| Draft pull request | A migration, the seed or a pgTAP test (`supabase/`) | All three | None | 4 |
+| Ready pull request | A migration, the seed or a pgTAP test | All three | Phone and computer, then the 6 Pages tests | 11 |
+| Push to `main` | A migration, the seed or a pgTAP test | All three | Phone only, then the 6 Pages tests | 8 |
+| Manual run (Actions > CI > Run workflow) | Anything | All three | Phone and computer, then the 6 Pages tests | 11 |
+| Any | A shared file, such as `ci.yml` or the root `package.json` | All three | As for a migration on the same event | 4, 11 or 8 |
+| Push to `main` | A force push, so there is no earlier commit to compare with | All three | Phone only, then the 6 Pages tests | 8 |
+
+Every run billed 12 minutes before this change. The estimates use job times measured on Thu 15 Oct 2026. The hygiene check took 4 seconds and the job code 10 seconds, now one job of about 20 seconds. `database` took 99 seconds, and `web` 467 seconds, of which 341 were browser tests on both screens. `database` bills 3 minutes instead of 2 when Supabase is slow to start.
+
+Two habits keep the bill down. Open work in progress as a draft pull request, then select "Ready for review" when its checks pass; that run adds the browser tests. Push when a piece of work is ready to check, not after every small edit.
+
+A broken run now stops early. Playwright stops after 5 failed tests or 12 minutes, or after 2 tests or 4 minutes for the Pages tests. The jobs time out at 5, 8 and 15 minutes. The separate "Prompt evaluation" workflow runs only when `prompts/` or `jobs/lib/claude.ts` changes, so it must never be a required check.
+
+To see what CI would run for your branch, run `scripts/ci-changes.sh origin/main` after `git fetch`.
+
+Next steps, in a separate change:
+
+- Upgrade the actions that still declare Node 20, which GitHub removed from its runners on Wed 23 Sep 2026: `actions/upload-artifact@v4`, `actions/upload-pages-artifact@v3`, `actions/deploy-pages@v4` and `supabase/setup-cli@v1`.
+- Pin every action to a full commit SHA (secure hash algorithm), with its version in a comment. Then a moved tag or branch can't change what runs.
+- Pin the Supabase command-line tool to one version instead of `latest`.
 
 ## Database test files
 

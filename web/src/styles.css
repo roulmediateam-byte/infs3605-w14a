@@ -1185,14 +1185,16 @@ a.list-row {
   gap: var(--space-6);
 }
 
+/* Owed and overdue side by side on every screen, so the decision card below them is in view on a phone. */
 .home-figures {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 172px), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
 }
 
 .home-figures .t-figure {
   font-size: clamp(26px, 7.4vw, 32px);
+  overflow-wrap: anywhere;
 }
 
 .figure-link {
@@ -1218,6 +1220,15 @@ a.list-row {
 
 .action-card > * + * {
   margin-top: var(--space-4);
+}
+
+/* Ready to send: each row has its own Send button, 44 px, rather than a caption. */
+.ready-row .amount {
+  flex: none;
+}
+
+.ready-row .btn {
+  flex: none;
 }
 
 @media (min-width: 1024px) {
@@ -1372,8 +1383,10 @@ a.list-row {
   gap: var(--space-2);
 }
 
+/* The locked facts have an edge of their own, so they stand apart from the draft in sunlight, not by tint alone. */
 .locked {
   padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 1px solid var(--border-control);
   border-radius: var(--radius);
   background: var(--surface-locked);
 }
@@ -1463,8 +1476,45 @@ button.fact {
   white-space: nowrap;
 }
 
+/* Review's facts in the order the owner decides by: the amount, then how late, then which invoice and its due date. */
+.locked-lead,
+.locked-minor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-5);
+}
+
+.locked .fact-amount,
+.locked .fact-overdue,
+.locked .fact-minor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.fact-lock {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+.fact-amount .fact-value {
+  font-size: 22px;
+  line-height: 28px;
+}
+
+.fact-minor .fact-value {
+  font-weight: 500;
+}
+
+.locked-source {
+  margin-top: var(--space-1);
+}
+
+/* The apprentice's words: a 4 px accent edge and a chip that says it hasn't gone anywhere. */
 .draft-surface {
   padding: var(--space-4);
+  border-left: 4px solid var(--accent);
   border-radius: var(--radius);
   background: var(--surface-draft);
 }
@@ -1472,6 +1522,20 @@ button.fact {
 .draft-surface.approved {
   background: var(--canvas);
   border: 1px solid var(--border-subtle);
+}
+
+.surface-chip {
+  margin-bottom: var(--space-3);
+}
+
+.chip-draft {
+  background: var(--canvas);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.address {
+  overflow-wrap: anywhere;
 }
 
 .surface-label {
@@ -1584,10 +1648,44 @@ button.fact {
   text-decoration: line-through;
 }
 
+/* A locked fact the edit changed: in the danger style with a lock, never green like an ordinary added word. */
+.diff-locked {
+  background: var(--chip-overdue-fill);
+  color: var(--danger);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--danger);
+  border-radius: 4px;
+  padding: 0 2px;
+  /* The lock stays with its amount. */
+  white-space: nowrap;
+}
+
+.diff-lock {
+  display: inline-block;
+  margin-right: 2px;
+  vertical-align: -2px;
+}
+
+/* A refused edit names the fact to keep, above the fields, so it stays in view while editing and in "Show changes".
+   It reads like any field error (red words and an icon), never a red banner (UI brief, Anti-goals). */
+.fact-error .field-error {
+  margin-top: 0;
+}
+
+.fact-error .btn-quiet {
+  margin-left: calc(var(--space-2) * -1);
+}
+
+.put-back-note {
+  font-weight: 500;
+}
+
+/* The message grows with its words, so the page scrolls rather than a box inside it; rows stay as the fallback. */
 .editor-text {
   font-size: 17px;
   line-height: 26px;
   min-height: 280px;
+  field-sizing: content;
 }
 
 /* ---------------------------------------------------------------------------------------------

@@ -82,7 +82,7 @@ What differs from the real app:
 - The sign-in code appears on screen, with a "Use it" button, because no email is sent.
 - Send shows a preview step instead of opening the email app, and downloads are switched off.
 - More has "Run it now", which runs Sunday's drafting run with the fallback templates (there is no AI).
-- Everything lives in the browser tab: nothing is sent anywhere, and a reload starts again from the seed.
+- Everything lives in the browser: nothing is sent anywhere. The demo's data is kept in this browser's storage (IndexedDB), so a reload carries on where you were; More, "Reset demo data", starts again from the seed. Where the browser can't keep it, or the demo is open in another tab, that tab runs in memory and a reload starts again.
 
 The engine files sit next to the page in `pglite/`. The file-system bundle ships as gzip-compressed base64 in `pglite-data.json`, because artifact hosting serves web file types only. In testing it reached sign-in in about 4 seconds.
 

@@ -290,6 +290,16 @@ export type AuthEvent = 'SIGNED_IN' | 'SIGNED_OUT' | 'TOKEN_REFRESHED' | 'USER_U
  * Everything the screens need from the backend. The Supabase adapter is the real one; a preview adapter can run
  * the same migrations in the browser for a click-through with Test data.
  */
+/** Where the preview keeps the demo's data (src/backend/preview-store.ts). */
+export interface PreviewStorage {
+  /** "stored": kept in this browser, so a reload carries on; "memory": only until a reload. */
+  mode: 'stored' | 'memory';
+  /** Why the data isn't kept: this browser can't store it, or the demo is open in another tab. */
+  reason?: 'unavailable' | 'other-tab';
+  /** True when this visit opened data kept from an earlier one. */
+  reused: boolean;
+}
+
 /** Extras only the in-browser preview has: there is no email, no file to hand and no scheduled job. */
 export interface PreviewTools {
   /** The sign-in code, shown on screen because the preview sends no email. */
@@ -298,6 +308,9 @@ export interface PreviewTools {
   sampleImportFile(): Promise<File>;
   /** Sunday's drafting run, with the fallback templates (the preview has no AI). */
   runWeeklyRun(): Promise<{ drafted: number }>;
+  readonly storage: PreviewStorage;
+  /** Deletes the demo's data and the preview's own keys in this browser, then reloads with fresh Test data. */
+  resetDemo(): Promise<void>;
 }
 
 export interface Backend {

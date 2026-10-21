@@ -46,19 +46,44 @@ test('mark paid, with Undo in the message and on the invoice', async ({ page }) 
   await page.getByRole('button', { name: /Invoice 1056/ }).click();
   const sheet = page.getByRole('dialog', { name: 'Invoice 1056' });
   await expect(sheet.getByText('Reminders sent')).toBeVisible();
+  // A sheet for reading starts on its title, not on the "Paid on" date.
+  await expect(sheet.getByRole('heading', { name: 'Invoice 1056' })).toBeFocused();
   await sheet.getByRole('button', { name: 'Mark paid' }).click();
-  await expect(page.getByText('Marked paid. 1 reminder cancelled.')).toBeVisible();
+  // The message is a status line under the sheet's header, never over its title or Close button.
+  await expect(sheet.locator('.sheet-status')).toContainText('Marked paid. 1 reminder cancelled.');
+  const close = await sheet.getByRole('button', { name: 'Close' }).boundingBox();
+  const message = await sheet.locator('.toast').boundingBox();
+  expect(close && message && message.y >= close.y + close.height).toBe(true);
   await expect(sheet.getByText(/^Paid /)).toBeVisible();
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText(/^Open again\./)).toBeVisible();
   await expect(sheet.getByRole('button', { name: 'Mark paid' })).toBeVisible();
   await expect(sheet.getByText('The reminder for invoice 1056 was cancelled: marked paid')).toBeVisible();
+  // With a message showing, the pointer still reaches Close.
+  await sheet.getByRole('button', { name: 'Close' }).click();
+  await expect(sheet).toBeHidden();
+});
+
+test('Home: the figures sit side by side and the decision is in view, with "Test data" said once', async ({ page }) => {
+  const owed = await page.getByText('Owed to you', { exact: true }).boundingBox();
+  const overdue = await page.getByText('Overdue', { exact: true }).boundingBox();
+  expect(owed && overdue && Math.abs(owed.y - overdue.y) < 2).toBe(true);
+  const review = await page.getByRole('link', { name: 'Review drafts' }).boundingBox();
+  const nav = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
+  const viewport = page.viewportSize();
+  // Above the phone's bottom bar, or above the fold on a computer.
+  const limit = nav && viewport && nav.y > viewport.height / 2 ? nav.y : (viewport?.height ?? 0);
+  expect(review && review.y + review.height <= limit).toBe(true);
+  await expect(page.getByText('made-up invoices for testing')).toBeVisible();
+  await expect(page.locator('main .chip', { hasText: 'Test data' })).toHaveCount(0);
 });
 
 test('clients: adding a missing email clears its Needs attention item', async ({ page }) => {
   await expect(page.getByText('Coastline Fitouts (Test data)').first()).toBeVisible();
   await page.getByRole('button', { name: 'Add an email' }).click();
   const sheet = page.getByRole('dialog', { name: 'Coastline Fitouts (Test data)' });
+  // Focus starts on the client's name, so a phone doesn't raise its keyboard uninvited.
+  await expect(sheet.getByRole('heading', { name: 'Coastline Fitouts (Test data)' })).toBeFocused();
   await sheet.getByLabel('Email', { exact: true }).fill('not an email');
   await sheet.getByRole('button', { name: 'Add the email' }).click();
   await expect(sheet.getByText('Enter one valid email address, such as accounts@example.com.')).toBeVisible();

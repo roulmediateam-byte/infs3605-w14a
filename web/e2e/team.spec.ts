@@ -22,13 +22,42 @@ test('the checker approves, and the owner sends from Ready to send', async ({ pa
   await expect(owner.getByRole('heading', { name: 'Ready to send (1)' })).toBeVisible();
   await expect(owner.getByText('Approved by Jo Test.')).toBeVisible();
   const ready = owner.locator('section', { has: owner.getByRole('heading', { name: 'Ready to send (1)' }) });
-  await ready.getByRole('button', { name: /Bayside Builders \(Test data\)/ }).click();
+  await expect(ready).toContainText('Bayside Builders (Test data)');
+  await ready.getByRole('button', { name: 'Send the reminder for invoice 1066' }).click();
   await owner.getByRole('link', { name: 'Send from my email' }).click();
   await owner.getByRole('button', { name: 'Sent', exact: true }).click();
-  await expect(owner.getByText('Sent.')).toBeVisible();
+  await expect(owner.getByText('Sent. None left to send.')).toBeVisible();
   await owner.goto('log?invoice=1066');
   await expect(owner.getByText('Jo Test approved the reminder for invoice 1066')).toBeVisible();
   await expect(owner.getByText('Alex Test sent the reminder for invoice 1066 from their email')).toBeVisible();
+  await owner.close();
+});
+
+test('when the checker has approved everything, both Homes say the reminders are not sent yet', async ({ page, browser }) => {
+  await signIn(page, CHECKER, 'review');
+  for (let i = 1; i <= 5; i += 1) {
+    await expect(page.getByText(`${i} of 5`, { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Approve', exact: true }).click();
+  }
+  // The checker's summary says who sends, not "All caught up".
+  await expect(page.getByRole('heading', { name: '5 approved for Alex to send' })).toBeVisible();
+  await expect(page.getByText("Waiting for Alex to send them by Sun 9:00 pm, when Sunday's run replaces them.")).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Send the next one' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Back to Home' }).click();
+  const card = page.locator('.action-card');
+  await expect(card.getByRole('heading', { name: '5 reminders approved, not sent yet' })).toBeVisible();
+  await expect(card.getByText("Waiting for Alex to send them by Sun 9:00 pm, when Sunday's run replaces them.")).toBeVisible();
+  await expect(card.getByRole('button')).toHaveCount(0);
+
+  // The owner's Home leads with sending them, not with "All caught up" (Journey 3).
+  const owner = await browser.newPage();
+  await signIn(owner, OWNER);
+  const ownerCard = owner.locator('.action-card');
+  await expect(ownerCard.getByRole('heading', { name: '5 reminders approved, not sent yet' })).toBeVisible();
+  await expect(ownerCard.getByText("Send by Sun 9:00 pm, when Sunday's run replaces them.")).toBeVisible();
+  await ownerCard.getByRole('button', { name: 'Send the next one' }).click();
+  // The largest first, as Review orders them.
+  await expect(owner.getByRole('dialog', { name: 'Send this reminder' }).getByText('Quick reminder: invoice 1066')).toBeVisible();
   await owner.close();
 });
 

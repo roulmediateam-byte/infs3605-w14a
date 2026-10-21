@@ -1,8 +1,9 @@
 // UI-02 Home (FR-13): how much is owed, and is there anything to do? It shows the same briefing as the Monday
 // email, from the same database function, so the numbers never differ (AT-06). Order: context, decision,
-// exceptions, detail; a section with nothing in it disappears.
+// exceptions, detail; a section with nothing in it disappears. Done means sent: the decision card says "All caught
+// up" only when no draft waits for review and no approved reminder waits to be sent.
 import { Phone, Upload } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { screenEnabled } from '../app/config.ts';
 import { useMessages } from '../app/messages.tsx';
 import { useOnline } from '../app/online.ts';
@@ -21,11 +22,13 @@ import { useBackend, useBusiness } from '../app/session.tsx';
 import type { AttentionEntry, Business, WeeklyRun } from '../backend/types.ts';
 import { addDays, formatDate, sydneyClock, thisWeeksSunday } from '../lib/dates.ts';
 import { formatAud } from '../lib/money.ts';
+import { homeCard, largestFirst, nextToSend } from '../lib/review-session.ts';
 import { pendingSends } from '../lib/storage.ts';
-import { firstName, overdueChip, pluralise } from '../lib/words.ts';
+import { firstName, NOT_SENT_YET, overdueChip, pluralise, sentLeftToSend } from '../lib/words.ts';
 import { Banner, Button, Chip, EmptyState, FormError, PageTitle, Skeleton } from '../ui/controls.tsx';
 import { isPausedOffline, NoData } from '../ui/QueryState.tsx';
 import { ClientSheet } from './clients/ClientSheet.tsx';
+import { DemoGuide } from './DemoGuide.tsx';
 import { InvoiceSheet } from './invoices/InvoiceSheet.tsx';
 import { SendSheet } from './review/SendSheet.tsx';
 
@@ -71,6 +74,8 @@ export const HomeScreen = () => {
   const [clientId, setClientId] = useState<string | null>(null);
   const [showAllOverdue, setShowAllOverdue] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The reminder "Send the next one" offered last, so the one after it comes next if it is still unsent. */
+  const lastOffered = useRef<string | null>(null);
 
   const invoicesOn = screenEnabled('invoices');
   const clientsOn = screenEnabled('clients');
@@ -105,10 +110,29 @@ export const HomeScreen = () => {
   const b = briefing.data;
   const late = draftsLate(runs.data, business.data);
   const noInvoices = b.totals.open_count === 0 && (invoices.data?.length ?? 0) === 0;
-  const readyToSend = approved.data ?? [];
+  const readyToSend = largestFirst(approved.data ?? []);
   const approvers = [...new Set(readyToSend.map((draft) => draft.approved_by).filter((id): id is string => Boolean(id) && id !== user.id))];
   const overdueShown = showAllOverdue ? b.overdue : b.overdue.slice(0, 5);
   const pending = pendingSends();
+  const card = homeCard({
+    waiting: b.drafts_waiting,
+    approved: approved.data ? approved.data.length : null,
+    sends,
+    ownerSends: role === 'checker' && !sends,
+    ownerFirstName: ownerFirst,
+  });
+  // The business name already says "(Test data)" for the seed businesses, so the chip would only repeat it.
+  const nameSaysTestData = /\(test data\)\s*$/i.test(b.business.name);
+
+  const sendNext = () => {
+    const id = nextToSend(
+      readyToSend.map((draft) => draft.id),
+      lastOffered.current,
+    );
+    if (!id) return;
+    lastOffered.current = id;
+    setSendId(id);
+  };
 
   const answerXero = async (answer: 'on' | 'off') => {
     const result = await run('xero', () => backend.updateSettings(b.business.id, { xero_reminders: answer }));
@@ -128,7 +152,7 @@ export const HomeScreen = () => {
     <div className="stack-sm">
       <div className="row-wrap">
         <PageTitle documentTitle="Home">{b.business.name}</PageTitle>
-        {b.business.is_test_data ? <Chip>Test data</Chip> : null}
+        {b.business.is_test_data && !nameSaysTestData ? <Chip>Test data</Chip> : null}
       </div>
       <p className="t-caption">This week's briefing, as of {formatDate(b.as_of_date)}.</p>
     </div>
@@ -189,26 +213,34 @@ export const HomeScreen = () => {
         </p>
       </section>
 
+      {/* The one decision, in three states: drafts to review; otherwise approved reminders not sent yet; otherwise all caught up. */}
       <section className="action-card" aria-labelledby="drafts-heading">
-        {b.drafts_waiting > 0 ? (
-          <>
-            <h2 className="t-heading" id="drafts-heading">
-              {pluralise(b.drafts_waiting, 'draft')} {b.drafts_waiting === 1 ? 'needs' : 'need'} your OK
-            </h2>
-            <p className="t-secondary">Nothing is sent until {role === 'checker' && !sends ? `you approve it and ${ownerFirst} sends it` : 'you approve and send it'}.</p>
-            <Link className="btn btn-primary btn-lg btn-block" to={b.first_draft_id ? `review?draft=${b.first_draft_id}` : 'review'}>
-              {role === 'admin' ? 'See drafts' : 'Review drafts'}
-            </Link>
-          </>
+        {card.kind === 'unknown' && approved.isLoading ? (
+          <div className="stack-sm" role="status" aria-label="Checking for reminders still to send">
+            <Skeleton width="70%" height={24} />
+            <Skeleton height={20} />
+          </div>
         ) : (
           <>
             <h2 className="t-heading" id="drafts-heading">
-              All caught up
+              {card.title}
             </h2>
-            <p className="t-secondary">Your apprentice drafts again on Sunday.</p>
+            <p className="t-secondary">{card.line}</p>
+            {card.kind === 'review' ? (
+              <Link className="btn btn-primary btn-lg btn-block" to={b.first_draft_id ? `review?draft=${b.first_draft_id}` : 'review'}>
+                {role === 'admin' ? 'See drafts' : 'Review drafts'}
+              </Link>
+            ) : card.kind === 'send' && sends ? (
+              <Button variant="primary" size="lg" block onClick={sendNext}>
+                Send the next one
+              </Button>
+            ) : null}
           </>
         )}
       </section>
+
+      {/* Preview only: the "Try the Week 7 demo" card. It renders nothing in the real app. */}
+      <DemoGuide />
 
       {readyToSend.length > 0 && sends ? (
         <section aria-labelledby="ready-heading">
@@ -220,27 +252,25 @@ export const HomeScreen = () => {
           {approvers.length > 0 ? <p className="t-caption">Approved by {approvers.map((id) => memberName(id) ?? 'your checker').join(' and ')}.</p> : null}
           <ul className="list">
             {readyToSend.map((draft) => (
-              <li key={draft.id}>
-                <button type="button" className="list-row" onClick={() => setSendId(draft.id)}>
-                  <span className="list-main">
-                    <span className="list-title" style={{ display: 'block' }}>
-                      {clientNameByInvoice.get(draft.invoice_id) ?? `Invoice ${draft.invoice_number_shown}`}
-                    </span>
-                    <span className="list-meta">
-                      Invoice {draft.invoice_number_shown} · {pending[draft.id] ? 'Did it send? Tap to answer' : 'Send by Sun 9:00 pm'}
-                    </span>
+              <li key={draft.id} className="list-row ready-row">
+                <span className="list-main">
+                  <span className="list-title" style={{ display: 'block' }}>
+                    {clientNameByInvoice.get(draft.invoice_id) ?? `Invoice ${draft.invoice_number_shown}`}
                   </span>
-                  <span className="list-end">
-                    <span className="amount">{formatAud(draft.amount_shown_cents)}</span>
-                    <span className="t-caption">Send</span>
+                  <span className="list-meta">
+                    Invoice {draft.invoice_number_shown} · {pending[draft.id] ? 'Did it send? Tap Send to answer' : 'Send by Sun 9:00 pm'}
                   </span>
-                </button>
+                </span>
+                <span className="amount">{formatAud(draft.amount_shown_cents)}</span>
+                <Button variant="secondary" onClick={() => setSendId(draft.id)}>
+                  Send<span className="visually-hidden"> the reminder for invoice {draft.invoice_number_shown}</span>
+                </Button>
               </li>
             ))}
           </ul>
         </section>
       ) : null}
-      {readyToSend.length > 0 && !sends ? (
+      {readyToSend.length > 0 && !sends && card.kind !== 'send' ? (
         <p className="note">
           {pluralise(readyToSend.length, 'approved reminder')} {readyToSend.length === 1 ? 'is' : 'are'} waiting for {ownerFirst} to send.
         </p>
@@ -406,9 +436,9 @@ export const HomeScreen = () => {
         <SendSheet
           draftId={sendId}
           onClose={() => setSendId(null)}
-          onDone={(outcome) => {
+          onDone={(outcome, id) => {
             setSendId(null);
-            show({ text: outcome === 'sent' ? 'Sent.' : 'Not sent yet. Send it by Sun 9:00 pm.' });
+            show({ text: outcome === 'sent' ? sentLeftToSend(readyToSend.filter((draft) => draft.id !== id).length) : NOT_SENT_YET });
           }}
         />
       ) : null}

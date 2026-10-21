@@ -29,7 +29,7 @@ npm run demo
 
 Open http://127.0.0.1:4174 and sign in as `owner@example.test`. No email is sent: the code appears on screen, with a "Use it" button.
 
-This click-through preview runs the real database migrations and the Test data seed inside your browser tab. Nothing is sent anywhere, and a reload starts again from the seed. Press Ctrl+C in the terminal to stop it. It needs no bash and no database, so it is also the quickest start on Windows.
+This click-through preview runs the real database migrations and the Test data seed inside your browser. Nothing is sent anywhere. Press Ctrl+C in the terminal to stop it. It needs no bash and no database, so it is also the quickest start on Windows.
 
 Try the review loop: open Review, approve a draft, then send it. Under More, "Run it now" drafts Sunday's reminders with the fallback templates.
 

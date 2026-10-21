@@ -1,6 +1,7 @@
 // The frame around every screen except Review: five destinations, never more, in a bottom bar on phones and a side
 // bar from 768 px; standing banners for Test data, offline and Xero reminders (UI brief, Experience architecture).
-import { Ellipsis, FileText, House, Inbox, Users, type LucideIcon } from 'lucide-react';
+// The preview and Test data share one compact strip, so the screen's own decision stays above the fold on a phone.
+import { ChevronDown, Ellipsis, FileText, FlaskConical, House, Inbox, Users, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { screenEnabled } from './config.ts';
 import { useOnline } from './online.ts';
@@ -35,18 +36,38 @@ export const Shell = ({ route, children }: { route: RouteName; children: ReactNo
     { to: 'more', route: 'more', label: 'More', icon: Ellipsis },
   ];
   const current = MORE_ROUTES.includes(route) ? 'more' : route;
+  const testData = Boolean(business.data?.is_test_data);
   const banners = [
-    backend.preview ? (
-      <Banner key="preview">
-        <strong>Preview.</strong> This copy of the app runs in your browser, on the repository's real migrations, with Test data. Nothing is sent, and a
-        reload starts again.
-      </Banner>
-    ) : null,
-    business.data?.is_test_data ? (
-      <Banner key="test">
-        <strong>Test data.</strong> This business holds made-up invoices for testing.
-        {route === 'import' ? ' Import only made-up invoices until the team records your written agreement to use real ones.' : null}
-      </Banner>
+    backend.preview || testData ? (
+      // One strip for the preview and Test data, at most two lines on a phone; the rest waits behind "Details".
+      <div key="data" className="data-strip">
+        {backend.preview ? (
+          <details>
+            <summary className="data-strip-line">
+              <FlaskConical size={16} strokeWidth={1.5} aria-hidden="true" className="data-strip-icon" />
+              <span className="data-strip-text">
+                <strong>Preview</strong>
+                {testData ? ' · made-up Test data' : ''} · nothing is sent
+              </span>
+              <span className="data-strip-more">
+                Details
+                <ChevronDown size={16} strokeWidth={1.5} aria-hidden="true" />
+              </span>
+            </summary>
+            <p className="data-strip-note">This copy of the app runs in your browser, with the same rules as the real one. A reload starts again from the same Test data.</p>
+          </details>
+        ) : (
+          <p className="data-strip-line">
+            <FlaskConical size={16} strokeWidth={1.5} aria-hidden="true" className="data-strip-icon" />
+            <span className="data-strip-text">
+              <strong>Test data</strong> · made-up invoices for testing
+            </span>
+          </p>
+        )}
+        {testData && route === 'import' ? (
+          <p className="data-strip-note">Import only made-up invoices until the team records your written agreement to use real ones.</p>
+        ) : null}
+      </div>
     ) : null,
     !online ? (
       <Banner key="offline" tone="warning" role="status">

@@ -46,14 +46,14 @@ export const ClientSheet = ({ clientId, onClose }: { clientId: string; onClose: 
 
   if (clients.data === undefined) {
     return (
-      <Sheet open onClose={onClose} title="Client">
+      <Sheet open onClose={onClose} title="Client" initialFocus="title">
         <NoData query={clients} loading={<Skeleton height={120} />} />
       </Sheet>
     );
   }
   if (!client) {
     return (
-      <Sheet open onClose={onClose} title="Client">
+      <Sheet open onClose={onClose} title="Client" initialFocus="title">
         <ErrorPanel message="This item is no longer available." />
       </Sheet>
     );
@@ -107,7 +107,8 @@ export const ClientSheet = ({ clientId, onClose }: { clientId: string; onClose: 
   };
 
   return (
-    <Sheet open onClose={onClose} title={client.name} busy={busy !== null}>
+    // Focus starts on the client's name, so the phone's keyboard doesn't rise for an owner who came to set the tone.
+    <Sheet open onClose={onClose} title={client.name} busy={busy !== null} initialFocus="title">
       <div className="stack-lg">
         <div className="row-wrap">
           <Chip>{TONE_LABEL[client.tone]}</Chip>

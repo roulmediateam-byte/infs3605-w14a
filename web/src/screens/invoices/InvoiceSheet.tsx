@@ -63,7 +63,8 @@ export const InvoiceSheet = ({ invoiceId, onClose }: { invoiceId: string; onClos
   const entries = history.data?.pages.flat() ?? [];
 
   return (
-    <Sheet open onClose={onClose} title={invoice ? `Invoice ${invoice.invoice_number}` : 'Invoice'} busy={busy !== null}>
+    // Mostly for reading: focus starts on the title, not the "Paid on" date, which a phone would open as a picker.
+    <Sheet open onClose={onClose} title={invoice ? `Invoice ${invoice.invoice_number}` : 'Invoice'} busy={busy !== null} initialFocus="title">
       {invoices.data === undefined ? (
         <NoData
           query={invoices}

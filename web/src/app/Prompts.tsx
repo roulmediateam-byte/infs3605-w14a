@@ -67,7 +67,7 @@ export const PendingSendPrompt = () => {
       onDone={(outcome) => {
         setDraftId(null);
         setChecked((n) => n + 1);
-        show({ text: outcome === 'sent' ? 'Sent.' : NOT_SENT_YET });
+        show(outcome === 'sent' ? { text: 'Sent.' } : { text: NOT_SENT_YET, tone: 'info' });
       }}
     />
   );

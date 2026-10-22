@@ -9,6 +9,7 @@ import { useBriefing, useBusinessRecord } from './queries.ts';
 import { Link, type RouteName } from './router.tsx';
 import { useBackend } from './session.tsx';
 import type { PreviewStorage } from '../backend/types.ts';
+import { AppMark } from '../ui/AppMark.tsx';
 import { Banner } from '../ui/controls.tsx';
 import { XeroOffSteps } from '../ui/XeroSteps.tsx';
 
@@ -96,7 +97,14 @@ export const Shell = ({ route, children }: { route: RouteName; children: ReactNo
         Skip to content
       </a>
       <nav className="nav" aria-label="Main">
-        <p className="nav-business">{business.data?.name ?? briefing.data?.business.name ?? 'Get-Paid Apprentice'}</p>
+        {/* On a computer the side bar starts with the app's mark and name, and the business underneath. */}
+        <div className="nav-brand">
+          <AppMark size={32} />
+          <p className="nav-brand-text">
+            <span className="nav-app">Get-Paid Apprentice</span>
+            <span className="nav-business">{business.data?.name ?? briefing.data?.business.name ?? ''}</span>
+          </p>
+        </div>
         <ul className="nav-list">
           {items.map((item) => (
             <li key={item.route}>
@@ -106,7 +114,9 @@ export const Shell = ({ route, children }: { route: RouteName; children: ReactNo
                 aria-current={current === item.route ? 'page' : undefined}
                 aria-label={item.badge ? `${item.label}, ${item.badge} ${item.badge === 1 ? 'draft' : 'drafts'} waiting` : undefined}
               >
-                <item.icon size={20} strokeWidth={1.5} aria-hidden="true" />
+                <span className="nav-icon">
+                  <item.icon size={22} strokeWidth={1.75} aria-hidden="true" />
+                </span>
                 <span className="nav-link-label">{item.label}</span>
                 {item.badge ? (
                   <span className="nav-badge" aria-hidden="true">

@@ -1,11 +1,11 @@
 // The parts of a draft on screen (UI brief, Key screen: Review): who and how, the locked facts from the record,
 // the apprentice's words on a tinted Draft surface, "Why this draft?" and the consequence line above Approve.
-import { Lock } from 'lucide-react';
+import { ChevronDown, FileText, Lock } from 'lucide-react';
 import { useBackend } from '../../app/session.tsx';
 import type { QueueItem } from '../../backend/types.ts';
 import { formatDate, formatTime, overdueText, sydneyDate } from '../../lib/dates.ts';
 import { formatAud } from '../../lib/money.ts';
-import { TONE_LABEL, whyThisDraft } from '../../lib/words.ts';
+import { overdueChip, TONE_LABEL, whyThisDraft } from '../../lib/words.ts';
 import { Chip } from '../../ui/controls.tsx';
 
 /** "From your latest import, Wed 21 Oct, 4:05 pm": when the facts were last read from the owner's records. */
@@ -33,13 +33,13 @@ export const LockedFacts = ({
     return (
       <section ref={pinnedRef} className="locked locked-pinned" aria-label="Locked facts">
         <p className="locked-label" aria-hidden="true">
-          <Lock size={14} strokeWidth={1.5} />
+          <Lock size={14} strokeWidth={2} />
           Locked facts
         </p>
         <ul className="locked-facts">
           {short.map((text) => (
             <li key={text} className="fact fact-value">
-              <Lock size={14} strokeWidth={1.5} aria-hidden="true" />
+              <Lock size={14} strokeWidth={2} aria-hidden="true" />
               <span className="visually-hidden">Locked: </span>
               {text}
             </li>
@@ -57,13 +57,10 @@ export const LockedFacts = ({
     { key: 'invoice', value: `Invoice ${item.invoice_number}`, spoken: `Invoice ${item.invoice_number}`, className: 'fact-minor' },
     { key: 'due', value: `Due ${formatDate(item.due_date)}`, spoken: `Due ${formatDate(item.due_date)}`, className: 'fact-minor' },
   ];
+  // One lock, in the label, says it for every fact; each fact is then a plain record (the report: a record, not a
+  // disabled field). Screen readers still hear "locked" on each.
   const fact = (entry: (typeof facts)[number]) => {
-    const content = (
-      <>
-        <Lock size={entry.key === 'amount' ? 16 : 14} strokeWidth={1.5} aria-hidden="true" className="fact-lock" />
-        <span className="fact-value">{entry.value}</span>
-      </>
-    );
+    const content = <span className="fact-value">{entry.value}</span>;
     return onOpenInvoice ? (
       <button type="button" className={`fact ${entry.className}`} onClick={onOpenInvoice} aria-label={`${entry.spoken}, locked. Open the invoice`}>
         {content}
@@ -79,7 +76,7 @@ export const LockedFacts = ({
   return (
     <section className="locked" aria-label="Locked facts">
       <p className="locked-label">
-        <Lock size={16} strokeWidth={1.5} aria-hidden="true" />
+        <Lock size={16} strokeWidth={2} aria-hidden="true" />
         Locked facts, from your records
       </p>
       <ul className="locked-lead">
@@ -97,13 +94,15 @@ export const LockedFacts = ({
   );
 };
 
+/** The client's name, large, with the invoice's status beside it: who the reminder is for, and how late they are. */
 export const WhoAndHow = ({ item, contactName }: { item: QueueItem; contactName?: string | null }) => (
   <div className="stack-sm">
-    <p className="list-title t-heading">{item.client_name}</p>
+    <p className="review-client t-title">{item.client_name}</p>
     <div className="who">
-      {contactName ? <span className="t-caption">To {contactName}</span> : null}
+      <Chip tone="overdue">{overdueChip(item.days_overdue).label}</Chip>
       <Chip>{TONE_LABEL[item.tone]}</Chip>
-      {item.source === 'template' ? <Chip>Template</Chip> : null}
+      {item.source === 'template' ? <Chip icon={FileText}>Template</Chip> : null}
+      {contactName ? <span className="t-caption">To {contactName}</span> : null}
     </div>
   </div>
 );
@@ -114,7 +113,9 @@ export const WhoAndHow = ({ item, contactName }: { item: QueueItem; contactName?
  */
 export const DraftWords = ({ subject, body, approved = false }: { subject: string; body: string; approved?: boolean }) => (
   <div className={`draft-surface${approved ? ' approved' : ''}`}>
-    <Chip className={`surface-chip${approved ? '' : ' chip-draft'}`}>{approved ? 'Approved text' : 'Draft · not sent yet'}</Chip>
+    <Chip tone={approved ? 'ready' : 'apprentice'} className="surface-chip">
+      {approved ? 'Approved text' : 'Draft · not sent yet'}
+    </Chip>
     <p className="draft-subject">{subject}</p>
     <p className="draft-text t-draft">{body}</p>
   </div>
@@ -124,7 +125,10 @@ export const WhyThisDraft = ({ item, cooldownDays }: { item: QueueItem; cooldown
   const backend = useBackend();
   return (
     <details className="why">
-      <summary>Why this draft?</summary>
+      <summary>
+        Why this draft?
+        <ChevronDown size={20} strokeWidth={2} aria-hidden="true" />
+      </summary>
       {whyThisDraft(
         {
           invoice_number: item.invoice_number,

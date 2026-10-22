@@ -20,10 +20,10 @@ test('a wrong code is refused, and the right one signs the owner in to Home', as
   await page.getByLabel('6-digit code').press(wrong.slice(5));
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByText("That code didn't work. Check the 6 digits, or ask for a new code.")).toBeVisible();
-  // "Send a new code" waits a moment before it works again, and looks it.
+  // "Send a new code" waits a moment before it works again, and looks it: secondary text (slate-600), not link blue.
   const resend = page.getByRole('button', { name: 'Send a new code' });
   if ((await resend.getAttribute('aria-disabled')) === 'true') {
-    await expect(resend).toHaveCSS('color', 'rgb(74, 83, 97)');
+    await expect(resend).toHaveCSS('color', 'rgb(71, 85, 105)');
   }
   // Pasting the code signs in straight away (the phone's one-time-code autofill does the same).
   await page.getByLabel('6-digit code').fill(code);

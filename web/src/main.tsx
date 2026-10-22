@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { StrictMode, type CSSProperties } from 'react';
+import { StrictMode } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { createBackend, watchBoot } from '@backend';
@@ -10,7 +10,7 @@ import { createQueryClient } from './app/queries.ts';
 import { restoreDeepLink } from './app/router.tsx';
 import { BackendProvider, SessionProvider } from './app/session.tsx';
 import type { Backend } from './backend/types.ts';
-import { AppMark } from './ui/AppMark.tsx';
+import { BrandFrame } from './ui/BrandFrame.tsx';
 import './styles.css';
 
 restoreDeepLink();
@@ -30,28 +30,13 @@ const BOOT_WORDS = {
  */
 const BOOT_STEP: Record<string, number> = { download: 0, open: 0, start: 1, migrate: 1, save: 2, ready: 2 };
 
-const segment = (index: number, step: number): CSSProperties => ({
-  flex: '1 1 0',
-  height: 8,
-  borderRadius: 999,
-  // Done steps are filled, the current one half filled; the words above say the same, so colour is not needed.
-  background:
-    index < step
-      ? 'var(--accent)'
-      : index === step
-        ? 'linear-gradient(90deg, var(--accent) 50%, var(--surface-locked) 50%)'
-        : 'var(--surface-locked)',
-  boxShadow: index > step ? 'inset 0 0 0 1px var(--border-control)' : undefined,
-});
+/** Done steps are filled, the current one half filled; the words above say the same, so colour is not needed. */
+const segment = (index: number, step: number): string => `boot-step${index < step ? ' is-done' : index === step ? ' is-current' : ''}`;
 
 const BootScreen = ({ step, opening }: { step: number; opening: boolean }) => {
   const words = (opening ? BOOT_WORDS.open : BOOT_WORDS.build)[step] ?? '';
   return (
-    <main className="sign-in" id="main">
-      <div className="brand">
-        <AppMark />
-        <span>Get-Paid Apprentice</span>
-      </div>
+    <BrandFrame>
       <div className="stack-lg">
         {/* A polite live region: each new step is read out once. The bar has no text, so it adds nothing to that. */}
         <div role="status" className="stack-sm">
@@ -66,10 +51,10 @@ const BootScreen = ({ step, opening }: { step: number; opening: boolean }) => {
             aria-valuemax={3}
             aria-valuenow={step + 1}
             aria-valuetext={`Step ${step + 1} of 3: ${words}`}
-            style={{ display: 'flex', gap: 6, paddingTop: 4 }}
+            className="boot-steps"
           >
             {[0, 1, 2].map((index) => (
-              <span key={index} style={segment(index, step)} />
+              <span key={index} className={segment(index, step)} />
             ))}
           </div>
           <p className="t-caption">Step {step + 1} of 3</p>
@@ -80,13 +65,13 @@ const BootScreen = ({ step, opening }: { step: number; opening: boolean }) => {
         </div>
         <p className="t-caption">Everything runs in this browser with made-up Test data. Nothing is sent.</p>
       </div>
-    </main>
+    </BrandFrame>
   );
 };
 
 const notice = (title: string, lines: string[]) =>
   root.render(
-    <main className="sign-in" id="main">
+    <BrandFrame>
       <div className="stack">
         <h1 className="t-title">{title}</h1>
         {lines.map((line) => (
@@ -95,7 +80,7 @@ const notice = (title: string, lines: string[]) =>
           </p>
         ))}
       </div>
-    </main>,
+    </BrandFrame>,
   );
 
 const start = (backend: Backend) => {

@@ -5,7 +5,7 @@
 // Mount it on Home with no props: <DemoGuide />. It needs the app's providers, which Home already has, and renders
 // nothing outside the preview build, for a team admin, or once hidden.
 import { useQuery } from '@tanstack/react-query';
-import { Check } from 'lucide-react';
+import { Check, FlaskConical } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useMessages } from '../app/messages.tsx';
 import { Link } from '../app/router.tsx';
@@ -13,6 +13,7 @@ import { useBackend, useBusiness } from '../app/session.tsx';
 import { PREVIEW_KEYS } from '../backend/preview-store.ts';
 import type { LogEntry } from '../lib/activity.ts';
 import { readItem, writeItem } from '../lib/storage.ts';
+import { IconTile } from '../ui/controls.tsx';
 import { useRunDrafting } from './More.tsx';
 import './DemoGuide.css';
 
@@ -78,6 +79,7 @@ const DemoGuideCard = () => {
     document.querySelector<HTMLElement>('#main h1')?.focus({ preventScroll: true });
     show({
       text: 'Demo guide hidden.',
+      tone: 'info',
       action: {
         label: 'Undo',
         run: () => {
@@ -138,6 +140,7 @@ const DemoGuideCard = () => {
     <section className="card demo-guide" aria-labelledby="demo-guide-title">
       <div className="demo-guide-head">
         <h2 className="t-heading" id="demo-guide-title">
+          <IconTile icon={FlaskConical} tone="info" size="sm" />
           Try the Week 7 demo
         </h2>
         <button type="button" className="btn btn-quiet" onClick={hide}>

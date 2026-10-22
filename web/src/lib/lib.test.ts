@@ -19,7 +19,7 @@ import {
   summaryLine,
   unsentInSession,
 } from './review-session.ts';
-import { invoiceChip, NOT_SENT_YET, sendByLine, sentLeftToSend, waitingForOwnerLine, whyThisDraft } from './words.ts';
+import { initials, invoiceChip, NOT_SENT_YET, sendByLine, sentLeftToSend, waitingForOwnerLine, whyThisDraft } from './words.ts';
 import type { DraftRecord, QueueItem } from '../backend/types.ts';
 
 // A fixed moment: Thu 15 Oct 2026, 1:30 pm in Sydney (AEDT, UTC+11).
@@ -293,6 +293,15 @@ describe('status language', () => {
     const preview = whyThisDraft({ invoice_number: '1062', days_overdue: 45, reminders_sent_before: 1, tone: 'firm', source: 'template', cooldownDays: 6 }, { preview: true });
     expect(preview[1]).toBe('This preview has no AI, so your apprentice used the Firm template.');
     expect(whyThisDraft({ invoice_number: '1062', days_overdue: 45, reminders_sent_before: 1, tone: 'firm', source: 'ai', cooldownDays: 6 }, { preview: true })).toHaveLength(1);
+  });
+
+  it('gives each client an avatar of up to two letters, leaving out "(Test data)"', () => {
+    expect(initials('Northshore Homes (Test data)')).toBe('NH');
+    expect(initials('Greenway Strata (Test data)')).toBe('GS');
+    expect(initials('bayside')).toBe('B');
+    expect(initials('Smith & Sons Electrical')).toBe('SS');
+    expect(initials('Élan Fitouts')).toBe('ÉF');
+    expect(initials('(Test data)')).toBe('?');
   });
 
   it('words sending the same way everywhere', () => {

@@ -2,7 +2,23 @@
 // email, from the same database function, so the numbers never differ (AT-06). Order: context, decision,
 // exceptions, detail; a section with nothing in it disappears. Done means sent: the decision card says "All caught
 // up" only when no draft waits for review and no approved reminder waits to be sent.
-import { Phone, Upload } from 'lucide-react';
+import {
+  CalendarClock,
+  CalendarX,
+  CircleAlert,
+  CircleCheck,
+  FileUp,
+  HandCoins,
+  Inbox,
+  MailX,
+  PenLine,
+  Phone,
+  ScrollText,
+  Send,
+  TriangleAlert,
+  Upload,
+  type LucideIcon,
+} from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { screenEnabled } from '../app/config.ts';
 import { useMessages } from '../app/messages.tsx';
@@ -25,7 +41,7 @@ import { formatAud } from '../lib/money.ts';
 import { homeCard, largestFirst, nextToSend } from '../lib/review-session.ts';
 import { pendingSends } from '../lib/storage.ts';
 import { firstName, NOT_SENT_YET, overdueChip, pluralise, sentLeftToSend } from '../lib/words.ts';
-import { Banner, Button, Chip, EmptyState, FormError, PageTitle, Skeleton } from '../ui/controls.tsx';
+import { Avatar, Banner, Button, Chip, EmptyState, FormError, IconTile, PageTitle, Skeleton, type TileTone } from '../ui/controls.tsx';
 import { isPausedOffline, NoData } from '../ui/QueryState.tsx';
 import { ClientSheet } from './clients/ClientSheet.tsx';
 import { DemoGuide } from './DemoGuide.tsx';
@@ -36,6 +52,21 @@ const ATTENTION_TEXT: Record<AttentionEntry['kind'], string> = {
   email_missing: 'no email address, so no reminder was drafted.',
   amount_changed: 'the amount changed in your latest import, so its reminder was cancelled. A new one comes on Sunday.',
   due_date_changed: 'the due date changed in your latest import, so its reminder was cancelled. A new one comes on Sunday.',
+};
+
+/** Each kind of Needs attention item gets an amber tile with its own icon: "check this", without turning the section red. */
+const ATTENTION_ICON: Record<AttentionEntry['kind'], LucideIcon> = {
+  email_missing: MailX,
+  amount_changed: TriangleAlert,
+  due_date_changed: CalendarX,
+};
+
+/** The decision card's tile: the apprentice's violet while drafts wait, blue while approved ones wait to send, green when done. */
+const CARD_TILE: Record<'review' | 'send' | 'done' | 'unknown', { icon: LucideIcon; tone: TileTone }> = {
+  review: { icon: PenLine, tone: 'apprentice' },
+  send: { icon: Send, tone: 'ready' },
+  done: { icon: CircleCheck, tone: 'success' },
+  unknown: { icon: Inbox, tone: 'neutral' },
 };
 
 /**
@@ -92,8 +123,8 @@ export const HomeScreen = () => {
         <div className="page stack-lg" role="status" aria-label="Loading this week's briefing">
           <Skeleton width="60%" height={28} />
           <div className="home-figures">
-            <Skeleton height={64} />
-            <Skeleton height={64} />
+            <Skeleton height={96} />
+            <Skeleton height={96} />
           </div>
           <Skeleton height={140} />
         </div>
@@ -137,7 +168,7 @@ export const HomeScreen = () => {
   const answerXero = async (answer: 'on' | 'off') => {
     const result = await run('xero', () => backend.updateSettings(b.business.id, { xero_reminders: answer }));
     if (!result.ok) setError(result.error.message);
-    else show({ text: answer === 'on' ? "Saved. Turn off Xero's invoice reminders so clients don't get two." : 'Saved. Thanks.' });
+    else show(answer === 'on' ? { text: "Saved. Turn off Xero's invoice reminders so clients don't get two.", tone: 'warning' } : { text: 'Saved. Thanks.' });
   };
 
   const dismiss = async (entry: AttentionEntry) => {
@@ -164,6 +195,7 @@ export const HomeScreen = () => {
         {header}
         <EmptyState
           title="Import your open invoices to start"
+          icon={FileUp}
           action={
             <Link className="btn btn-primary btn-lg" to="import">
               <Upload size={20} strokeWidth={1.5} aria-hidden="true" /> Import invoices
@@ -176,26 +208,33 @@ export const HomeScreen = () => {
     );
   }
 
-  const figure = (label: string, cents: number, count: number, filter: string) => {
+  // Two tiles: Owed in white, Overdue in its red tone, the one money figure that takes a colour, because it carries a
+  // status. Each opens Invoices, filtered (UI brief, Home).
+  const figure = (label: string, cents: number, count: number, filter: string, critical: boolean) => {
+    const Icon = critical ? CircleAlert : HandCoins;
+    const className = `figure-tile${critical ? ' figure-tile-critical' : ''}`;
     const content = (
       <>
-        <span className="t-caption">{label}</span>
-        <span className="t-figure" style={{ display: 'block' }}>
-          {formatAud(cents)}
+        <span className="figure-label">
+          <Icon size={16} strokeWidth={2} aria-hidden="true" />
+          {label}
         </span>
-        <span className="t-caption num">{pluralise(count, 'invoice')}</span>
+        <span className="t-figure figure-value">{formatAud(cents)}</span>
+        <span className="t-caption figure-count num">{pluralise(count, 'invoice')}</span>
       </>
     );
     return invoicesOn ? (
-      <Link className="figure-link" to={`invoices?filter=${filter}`}>
+      <Link className={className} to={`invoices?filter=${filter}`}>
         {content}
       </Link>
     ) : (
-      <div className="figure-link">{content}</div>
+      <div className={className}>{content}</div>
     );
   };
+  const tile = CARD_TILE[card.kind];
 
-  const left = (
+  // Context first: the business, then the two figures. On a computer they run across the top, above the two columns.
+  const top = (
     <div className="stack-lg">
       {header}
       {late ? (
@@ -205,14 +244,19 @@ export const HomeScreen = () => {
       ) : null}
       <section aria-label="Totals" className="stack-sm">
         <div className="home-figures">
-          {figure('Owed to you', b.totals.owed_cents, b.totals.open_count, 'open')}
-          {figure('Overdue', b.totals.overdue_cents, b.totals.overdue_count, 'overdue')}
+          {figure('Owed to you', b.totals.owed_cents, b.totals.open_count, 'open', false)}
+          {figure('Overdue', b.totals.overdue_cents, b.totals.overdue_count, 'overdue', true)}
         </div>
-        <p className="t-caption">
+        <p className="t-caption due-week">
+          <CalendarClock size={16} strokeWidth={2} aria-hidden="true" />
           <span className="num">{formatAud(b.totals.due_this_week_cents)}</span> due in the next 7 days
         </p>
       </section>
+    </div>
+  );
 
+  const left = (
+    <div className="stack-lg">
       {/* The one decision, in three states: drafts to review; otherwise approved reminders not sent yet; otherwise all caught up. */}
       <section className="action-card" aria-labelledby="drafts-heading">
         {card.kind === 'unknown' && approved.isLoading ? (
@@ -222,10 +266,15 @@ export const HomeScreen = () => {
           </div>
         ) : (
           <>
-            <h2 className="t-heading" id="drafts-heading">
-              {card.title}
-            </h2>
-            <p className="t-secondary">{card.line}</p>
+            <div className="action-card-head">
+              <IconTile icon={tile.icon} tone={tile.tone} />
+              <div className="stack-sm">
+                <h2 className="t-sheet-title" id="drafts-heading">
+                  {card.title}
+                </h2>
+                <p className="t-secondary">{card.line}</p>
+              </div>
+            </div>
             {card.kind === 'review' ? (
               <Link className="btn btn-primary btn-lg btn-block" to={b.first_draft_id ? `review?draft=${b.first_draft_id}` : 'review'}>
                 {role === 'admin' ? 'See drafts' : 'Review drafts'}
@@ -257,9 +306,16 @@ export const HomeScreen = () => {
                   <span className="list-title" style={{ display: 'block' }}>
                     {clientNameByInvoice.get(draft.invoice_id) ?? `Invoice ${draft.invoice_number_shown}`}
                   </span>
-                  <span className="list-meta">
-                    Invoice {draft.invoice_number_shown} · {pending[draft.id] ? 'Did it send? Tap Send to answer' : 'Send by Sun 9:00 pm'}
+                  <span className="list-meta" style={{ display: 'block' }}>
+                    Invoice {draft.invoice_number_shown}
+                    {pending[draft.id] ? ' · Did it send? Tap Send to answer' : ''}
                   </span>
+                  {/* The deadline in the ready tone: approved, not sent yet, and Sunday's run replaces it. */}
+                  {pending[draft.id] ? null : (
+                    <Chip tone="ready" icon={CalendarClock} className="row-chip">
+                      Send by Sun 9:00 pm
+                    </Chip>
+                  )}
                 </span>
                 <span className="amount">{formatAud(draft.amount_shown_cents)}</span>
                 <Button variant="secondary" onClick={() => setSendId(draft.id)}>
@@ -294,11 +350,8 @@ export const HomeScreen = () => {
         </section>
       ) : null}
       <FormError message={error} />
-    </div>
-  );
 
-  const right = (
-    <div className="stack-lg">
+      {/* Exceptions. A phone shows them where it always did, after Ready to send; a computer, under the decision and beside the lists. */}
       {b.needs_attention.length > 0 ? (
         <section aria-labelledby="attention-heading">
           <div className="section-head">
@@ -308,7 +361,8 @@ export const HomeScreen = () => {
           </div>
           <ul className="list">
             {b.needs_attention.map((entry) => (
-              <li key={`${entry.kind}-${entry.invoice_id}`} className="list-row" style={{ alignItems: 'flex-start' }}>
+              <li key={`${entry.kind}-${entry.invoice_id}`} className="list-row attention-row">
+                <IconTile icon={ATTENTION_ICON[entry.kind]} tone="warning" size="sm" />
                 <div className="list-main stack-sm">
                   <p>
                     <span className="list-title">{entry.client_name}</span>, invoice {entry.invoice_number}: {ATTENTION_TEXT[entry.kind]}
@@ -338,7 +392,11 @@ export const HomeScreen = () => {
           </ul>
         </section>
       ) : null}
+    </div>
+  );
 
+  const right = (
+    <div className="stack-lg">
       <section aria-labelledby="overdue-heading">
         <div className="section-head">
           <h2 className="t-heading" id="overdue-heading">
@@ -351,37 +409,34 @@ export const HomeScreen = () => {
           <>
             <ul className="list">
               {overdueShown.map((invoice) => {
+                // The status sits under the client's name, after the amount in reading order.
                 const content = (
                   <>
+                    <Avatar name={invoice.client_name} />
                     <span className="list-main">
                       <span className="list-title" style={{ display: 'block' }}>
                         {invoice.client_name}
                       </span>
-                      <span className="list-meta">
+                      <span className="list-meta" style={{ display: 'block' }}>
                         Invoice {invoice.invoice_number}
                         {invoice.client_paused ? ' · Paused' : ''}
                       </span>
-                      {invoice.call_first ? (
-                        <span className="row" style={{ marginTop: 4 }}>
-                          <Phone size={16} strokeWidth={1.5} aria-hidden="true" />
-                          <span className="t-caption">Consider a call</span>
-                        </span>
-                      ) : null}
                     </span>
-                    <span className="list-end">
-                      <span className="amount">{formatAud(invoice.amount_due_cents)}</span>
+                    <span className="amount">{formatAud(invoice.amount_due_cents)}</span>
+                    <span className="row-status">
                       <Chip tone="overdue">{overdueChip(invoice.days_overdue).label}</Chip>
+                      {invoice.call_first ? <Chip icon={Phone}>Consider a call</Chip> : null}
                     </span>
                   </>
                 );
                 return (
                   <li key={invoice.invoice_id}>
                     {invoicesOn ? (
-                      <button type="button" className="list-row" onClick={() => setInvoiceId(invoice.invoice_id)}>
+                      <button type="button" className="list-row row-grid" onClick={() => setInvoiceId(invoice.invoice_id)}>
                         {content}
                       </button>
                     ) : (
-                      <div className="list-row">{content}</div>
+                      <div className="list-row row-grid">{content}</div>
                     )}
                   </li>
                 );
@@ -415,11 +470,13 @@ export const HomeScreen = () => {
         </p>
       ) : null}
 
-      <div className="row-wrap">
+      <div className="quiet-links">
         <Link className="btn btn-quiet" to="log">
+          <ScrollText size={16} strokeWidth={2} aria-hidden="true" />
           See what happened
         </Link>
         <Link className="btn btn-quiet" to="import">
+          <Upload size={16} strokeWidth={2} aria-hidden="true" />
           Import invoices
         </Link>
       </div>
@@ -427,7 +484,8 @@ export const HomeScreen = () => {
   );
 
   return (
-    <div className="page-wide">
+    <div className="page-wide stack-lg">
+      {top}
       <div className="home-grid">
         {left}
         {right}
@@ -438,7 +496,7 @@ export const HomeScreen = () => {
           onClose={() => setSendId(null)}
           onDone={(outcome, id) => {
             setSendId(null);
-            show({ text: outcome === 'sent' ? sentLeftToSend(readyToSend.filter((draft) => draft.id !== id).length) : NOT_SENT_YET });
+            show(outcome === 'sent' ? { text: sentLeftToSend(readyToSend.filter((draft) => draft.id !== id).length) } : { text: NOT_SENT_YET, tone: 'info' });
           }}
         />
       ) : null}

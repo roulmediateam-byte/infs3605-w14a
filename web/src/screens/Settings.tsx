@@ -1,7 +1,7 @@
 // UI-11 Settings (owner only; FR-02, FR-03, FR-22, FR-25, FR-27, FR-32, FR-33, D3). Grouped as Business, Briefing,
 // Reminders, Your voice, Team and Data. Changes apply from the next run. Delete all sits alone at the bottom in the
 // destructive style and asks for the typed business name.
-import { Download, Trash2 } from 'lucide-react';
+import { BellRing, Building2, Check, CircleDashed, Database, Download, Gauge, MessageSquareText, Sunrise, Trash2, Users, type LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMessages } from '../app/messages.tsx';
 import { useOnline } from '../app/online.ts';
@@ -12,7 +12,7 @@ import { formatDateLong, sydneyDate } from '../lib/dates.ts';
 import { exportEntries, slug, zip } from '../lib/export.ts';
 import { dollarsToCents, formatAud } from '../lib/money.ts';
 import { firstName, pluralise } from '../lib/words.ts';
-import { Banner, Button, Choices, FormError, LoadingBlock, PageTitle, TextAreaField, TextField } from '../ui/controls.tsx';
+import { Banner, Button, Chip, Choices, FormError, IconTile, LoadingBlock, PageTitle, TextAreaField, TextField } from '../ui/controls.tsx';
 import { useInsetRef } from '../ui/insets.ts';
 import { XeroOffSteps } from '../ui/XeroSteps.tsx';
 import { NoData } from '../ui/QueryState.tsx';
@@ -100,6 +100,14 @@ const downloadBytes = (bytes: Uint8Array, fileName: string): void => {
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
 };
+
+/** A settings group's title, after a blue-tinted tile that names its kind. */
+const GroupTitle = ({ id, icon, children }: { id: string; icon: LucideIcon; children: string }) => (
+  <h2 className="t-heading settings-title" id={id}>
+    <IconTile icon={icon} tone="action" size="sm" />
+    {children}
+  </h2>
+);
 
 export const SettingsScreen = () => {
   const { role, businessId, user } = useBusiness();
@@ -190,13 +198,13 @@ export const SettingsScreen = () => {
     if (!removeId) return;
     const result = await run('remove', () => backend.removeMember(removeId));
     setRemoveId(null);
-    if (!result.ok) show({ text: result.error.message });
+    if (!result.ok) show({ text: result.error.message, tone: 'critical' });
     else show({ text: 'Removed. Their access ended straight away.' });
   };
 
   const setCheckerMaySend = async (value: boolean) => {
     const result = await run('may-send', () => backend.updateSettings(businessId, { checker_may_send: value }));
-    if (!result.ok) show({ text: result.error.message });
+    if (!result.ok) show({ text: result.error.message, tone: 'critical' });
     else show({ text: value ? `Saved. ${firstName(checker?.display_name ?? 'Your checker')} can send reminders now.` : 'Saved. Only you send reminders now.' });
   };
 
@@ -252,9 +260,9 @@ export const SettingsScreen = () => {
         noValidate
       >
         <section className="settings-group" aria-labelledby="g-business">
-          <h2 className="t-heading" id="g-business">
+          <GroupTitle id="g-business" icon={Building2}>
             Business
-          </h2>
+          </GroupTitle>
           <TextField label="Business name" value={form.name} maxLength={120} onChange={(e) => update('name', e.target.value)} {...field('name')} />
           <TextField label="Your name" value={form.owner_name} maxLength={80} onChange={(e) => update('owner_name', e.target.value)} {...field('owner_name')} hint="It signs every reminder." />
           <TextField label="Sign-off" value={form.sign_off} maxLength={60} onChange={(e) => update('sign_off', e.target.value)} {...field('sign_off')} hint='The first line of the signature, such as "Thanks,".' />
@@ -271,9 +279,9 @@ export const SettingsScreen = () => {
         </section>
 
         <section className="settings-group" aria-labelledby="g-briefing">
-          <h2 className="t-heading" id="g-briefing">
+          <GroupTitle id="g-briefing" icon={Sunrise}>
             Briefing
-          </h2>
+          </GroupTitle>
           <p>Your briefing email comes every Monday.</p>
           <Choices
             legend="Briefing time (Sydney time)"
@@ -289,11 +297,12 @@ export const SettingsScreen = () => {
         </section>
 
         <section className="settings-group" aria-labelledby="g-reminders">
-          <h2 className="t-heading" id="g-reminders">
+          <GroupTitle id="g-reminders" icon={BellRing}>
             Reminders
-          </h2>
+          </GroupTitle>
           <TextField
             label="Days overdue before a reminder is drafted"
+            inputClassName="input-short"
             inputMode="numeric"
             value={form.overdue_threshold_days}
             onChange={(e) => update('overdue_threshold_days', e.target.value.replace(/\D/g, ''))}
@@ -301,6 +310,7 @@ export const SettingsScreen = () => {
           />
           <TextField
             label="Days between reminders for the same invoice"
+            inputClassName="input-short"
             inputMode="numeric"
             value={form.cooldown_days}
             onChange={(e) => update('cooldown_days', e.target.value.replace(/\D/g, ''))}
@@ -308,6 +318,7 @@ export const SettingsScreen = () => {
           />
           <TextField
             label="Suggest a call for invoices of at least (dollars, optional)"
+            inputClassName="input-short"
             inputMode="decimal"
             value={form.call_first}
             onChange={(e) => update('call_first', e.target.value)}
@@ -333,9 +344,9 @@ export const SettingsScreen = () => {
         </section>
 
         <section className="settings-group" aria-labelledby="g-voice">
-          <h2 className="t-heading" id="g-voice">
+          <GroupTitle id="g-voice" icon={MessageSquareText}>
             Your voice
-          </h2>
+          </GroupTitle>
           <p className="t-secondary">Your apprentice writes in this style. Leave out numbers, names and emails: it adds the facts from your records.</p>
           <TextAreaField
             label="Style note (optional)"
@@ -364,12 +375,12 @@ export const SettingsScreen = () => {
       </form>
 
       <section className="settings-group" aria-labelledby="g-team">
-        <h2 className="t-heading" id="g-team">
+        <GroupTitle id="g-team" icon={Users}>
           Team
-        </h2>
+        </GroupTitle>
         <p className="t-secondary">A checker can approve, edit and reject drafts while you're on site. You send them unless you allow otherwise.</p>
         {checker ? (
-          <div className="card stack-sm">
+          <div className="panel stack-sm">
             <p>
               <span className="list-title">{checker.display_name}</span>, {checker.invited_email}
             </p>
@@ -388,7 +399,7 @@ export const SettingsScreen = () => {
             </Button>
           </div>
         ) : (
-          <div className="card stack-sm">
+          <div className="panel stack-sm">
             <TextField label="Checker's name" value={invite.name} maxLength={80} onChange={(e) => setInvite({ ...invite, name: e.target.value })} error={inviteErrors.name ?? null} />
             <TextField
               label="Checker's email"
@@ -409,9 +420,9 @@ export const SettingsScreen = () => {
       </section>
 
       <section className="settings-group" aria-labelledby="g-trust">
-        <h2 className="t-heading" id="g-trust">
+        <GroupTitle id="g-trust" icon={Gauge}>
           How much your apprentice does
-        </h2>
+        </GroupTitle>
         <ol className="ladder">
           <li aria-current="true">
             <span>
@@ -420,7 +431,9 @@ export const SettingsScreen = () => {
               </span>
               <span className="t-caption">You approve and send every reminder.</span>
             </span>
-            <span className="chip chip-paid">Current</span>
+            <Chip tone="selected" icon={Check}>
+              Current
+            </Chip>
           </li>
           <li>
             <span>
@@ -429,7 +442,7 @@ export const SettingsScreen = () => {
               </span>
               <span className="t-caption">Approve several drafts at once.</span>
             </span>
-            <span className="chip">Not available yet</span>
+            <Chip icon={CircleDashed}>Not available yet</Chip>
           </li>
           <li>
             <span>
@@ -438,7 +451,7 @@ export const SettingsScreen = () => {
               </span>
               <span className="t-caption">Only for amounts you choose, and never to head contractors.</span>
             </span>
-            <span className="chip">Not available yet</span>
+            <Chip icon={CircleDashed}>Not available yet</Chip>
           </li>
         </ol>
         {trust.data ? (
@@ -451,9 +464,9 @@ export const SettingsScreen = () => {
       </section>
 
       <section className="settings-group" aria-labelledby="g-data">
-        <h2 className="t-heading" id="g-data">
+        <GroupTitle id="g-data" icon={Database}>
           Data
-        </h2>
+        </GroupTitle>
         <p className="t-secondary">
           Export everything held for this business as a .zip of spreadsheet files.
           {b.delete_after ? ` This business's data is deleted on ${formatDateLong(b.delete_after)}.` : ''}

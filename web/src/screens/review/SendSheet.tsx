@@ -124,7 +124,7 @@ export const SendSheet = ({
       onClose(refusal?.code);
       return;
     }
-    show({ text: NOT_SENT_YET });
+    show({ text: NOT_SENT_YET, tone: 'info' });
     onClose();
   };
 
@@ -159,17 +159,17 @@ export const SendSheet = ({
   };
 
   const copyPanel = payload?.to ? (
-    <div className="card card-muted stack-sm" aria-label="Copy the reminder">
+    <div className="panel stack-sm" aria-label="Copy the reminder">
       <p className="t-caption">Copy each part into a new email, send it, then come back and tap Sent.</p>
-      <div className="row-wrap">
-        <Button variant="secondary" onClick={() => void copy('Address', payload.to ?? '')}>
-          <Copy size={18} strokeWidth={1.5} aria-hidden="true" /> Copy address
+      <div className="stack-sm">
+        <Button variant="secondary" block onClick={() => void copy('Address', payload.to ?? '')}>
+          <Copy size={18} strokeWidth={2} aria-hidden="true" /> Copy address
         </Button>
-        <Button variant="secondary" onClick={() => void copy('Subject', payload.subject)}>
-          <Copy size={18} strokeWidth={1.5} aria-hidden="true" /> Copy subject
+        <Button variant="secondary" block onClick={() => void copy('Subject', payload.subject)}>
+          <Copy size={18} strokeWidth={2} aria-hidden="true" /> Copy subject
         </Button>
-        <Button variant="secondary" onClick={() => void copy('Message', payload.body)}>
-          <Copy size={18} strokeWidth={1.5} aria-hidden="true" /> Copy message
+        <Button variant="secondary" block onClick={() => void copy('Message', payload.body)}>
+          <Copy size={18} strokeWidth={2} aria-hidden="true" /> Copy message
         </Button>
       </div>
       {copied ? <p className="t-caption">{copied} copied.</p> : null}
@@ -256,13 +256,15 @@ export const SendSheet = ({
                 </div>
               </dl>
               {/* A pre-filled email can't choose the sending account, so this shows every time, not once. */}
-              <p className="t-caption">Your email app chooses the From address. Check it before you send.</p>
+              <Banner>Your email app chooses the From address. Check it before you send.</Banner>
             </div>
           ) : (
             <p role="alert">This client has no email address, so the reminder can't be sent. Add an email for them first.</p>
           )}
           <div className="draft-surface approved">
-            <Chip className="surface-chip">Approved text</Chip>
+            <Chip tone="ready" className="surface-chip">
+              Approved text
+            </Chip>
             <p className="draft-subject">{payload.subject}</p>
             <p className="draft-text t-draft">{payload.body}</p>
           </div>

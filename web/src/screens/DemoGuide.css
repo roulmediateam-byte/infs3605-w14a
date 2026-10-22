@@ -1,5 +1,5 @@
 /* Preview only: the "Try the Week 7 demo" card (screens/DemoGuide.tsx), on the tokens in styles.css. Each step is a
-   44 px target; a done step shows a tick and the word "Done", so the state never rests on colour alone. */
+   44 px target; a done step shows a green tick and the word "Done", so the state never rests on colour alone. */
 
 .demo-guide > * + * {
   margin-top: var(--space-3);
@@ -15,7 +15,13 @@
 /* The quiet button keeps its 44 px target but doesn't push the card's padding out. */
 .demo-guide-head .btn-quiet {
   flex: none;
-  margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) 0;
+  margin: calc(-1 * var(--space-2)) 0;
+}
+
+.demo-guide-head h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .demo-steps {
@@ -47,9 +53,9 @@
 }
 
 .demo-step.is-done .demo-step-mark {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
+  border-color: var(--success-icon);
+  background: var(--success-icon);
+  color: var(--on-action);
 }
 
 .demo-step-action {
@@ -62,7 +68,7 @@
   padding: var(--space-2) 0;
   border: 0;
   background: none;
-  color: var(--accent);
+  color: var(--action);
   font: inherit;
   font-weight: 600;
   text-align: left;
@@ -90,13 +96,13 @@
   font-size: 14px;
   line-height: 20px;
   font-weight: 600;
-  color: var(--chip-paid-text);
+  color: var(--success-text);
 }
 
 .demo-step-next {
   padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--chip-neutral-fill);
-  color: var(--chip-neutral-text);
+  border-radius: var(--radius-full);
+  background: var(--ready-chip);
+  color: var(--ready-text);
   font-weight: 500;
 }

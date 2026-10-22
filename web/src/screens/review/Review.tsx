@@ -2,7 +2,7 @@
 // button; on a computer the queue sits beside the draft. The server confirms each decision before the screen moves.
 // Done means sent: the end of a review says "All caught up" only when no approved reminder is left unsent.
 import { useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { Ban, CircleCheck, CircleDashed, ScrollText, Send, X, type LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useMessages } from '../../app/messages.tsx';
 import { useOnline } from '../../app/online.ts';
@@ -31,7 +31,8 @@ import {
 } from '../../lib/review-session.ts';
 import { KEYS, readItem } from '../../lib/storage.ts';
 import { CANCEL_REASON, CANCELLED_IN_PLACE, firstName, NOT_SENT_YET, pluralise, sendByLine, sentLeftToSend, waitingForOwnerLine } from '../../lib/words.ts';
-import { Banner, Button, Chip, FormError, PageTitle, Skeleton } from '../../ui/controls.tsx';
+import { Banner, Button, Chip, FormError, IconTile, PageTitle, Skeleton } from '../../ui/controls.tsx';
+import type { ChipTone } from '../../lib/words.ts';
 import { useInsetRef } from '../../ui/insets.ts';
 import { NoData } from '../../ui/QueryState.tsx';
 import { InvoiceSheet } from '../invoices/InvoiceSheet.tsx';
@@ -77,6 +78,29 @@ const outcomeLabel = (outcome: Outcome | undefined, sends: boolean, owner: strin
     default:
       return 'No longer available';
   }
+};
+
+/** The queue's chips in their tones: the apprentice's violet to review, blue approved, green sent, slate otherwise. */
+const outcomeTone = (outcome: Outcome | undefined): ChipTone => {
+  if (!outcome) return 'apprentice';
+  switch (outcome.kind) {
+    case 'approved':
+    case 'not-yet':
+      return 'ready';
+    case 'sent':
+      return 'paid';
+    case 'elsewhere':
+      return outcome.status === 'rejected' ? 'neutral' : outcome.status === 'sent' ? 'paid' : 'ready';
+    default:
+      return 'neutral';
+  }
+};
+
+/** Neutral outcomes keep a shape of their own: a no-entry sign for rejected, a broken circle for cancelled or gone. */
+const outcomeIcon = (outcome: Outcome | undefined): LucideIcon | undefined => {
+  if (outcome?.kind === 'rejected' || (outcome?.kind === 'elsewhere' && outcome.status === 'rejected')) return Ban;
+  if (outcome?.kind === 'cancelled' || outcome?.kind === 'dropped' || outcome?.kind === 'gone') return CircleDashed;
+  return undefined;
 };
 
 const isTyping = (target: EventTarget | null): boolean =>
@@ -337,7 +361,7 @@ export const ReviewScreen = () => {
     const edited = previous && 'edited' in previous ? previous.edited : false;
     // Reminders approved before this session are recorded too, so the end of the review counts them out once sent.
     dispatch({ type: 'outcome', id, outcome: { kind: result === 'sent' ? 'sent' : 'not-yet', edited } });
-    if (result === 'not-yet') show({ text: NOT_SENT_YET });
+    if (result === 'not-yet') show({ text: NOT_SENT_YET, tone: 'info' });
     else if (id === s.currentId) {
       const n = left(id);
       show({ text: `Sent. ${n === 0 ? 'None' : n} left.` });
@@ -451,6 +475,7 @@ export const ReviewScreen = () => {
         </Button>
       )}
       <Link className="btn btn-quiet" to="log">
+        <ScrollText size={16} strokeWidth={2} aria-hidden="true" />
         See what happened
       </Link>
     </div>
@@ -487,6 +512,7 @@ export const ReviewScreen = () => {
         </div>
       ) : (
         <div className="summary-card" role="status">
+          {waitingToSend > 0 ? <IconTile icon={Send} tone="ready" size="lg" /> : <IconTile icon={CircleCheck} tone="success" size="lg" />}
           <h2 className="t-title" ref={endTitleRef} tabIndex={-1}>
             {waitingToSend > 0
               ? sends
@@ -507,6 +533,7 @@ export const ReviewScreen = () => {
     const summary = reviewSummary(counts, sends, ownerFirst, toSend === null ? null : toSend.length);
     body = (
       <div className="summary-card" role="status">
+        {sends && toSend !== null && toSend.length > 0 ? <IconTile icon={Send} tone="ready" size="lg" /> : <IconTile icon={CircleCheck} tone="success" size="lg" />}
         <h2 className="t-title" ref={endTitleRef} tabIndex={-1}>
           {summary.title}
         </h2>
@@ -626,7 +653,9 @@ export const ReviewScreen = () => {
                         Invoice {entry.invoice_number} · {formatAud(entry.amount_due_cents)}
                       </span>
                     </span>
-                    <Chip>{outcomeLabel(result, sends, ownerFirst, nameOf)}</Chip>
+                    <Chip tone={outcomeTone(result)} icon={outcomeIcon(result)}>
+                      {outcomeLabel(result, sends, ownerFirst, nameOf)}
+                    </Chip>
                   </button>
                 </li>
               );

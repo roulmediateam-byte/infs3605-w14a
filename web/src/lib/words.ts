@@ -2,7 +2,11 @@
 // colour second (WCAG 1.4.1); the chip tone only picks the colour pair from the UI brief.
 import { daysBetween, formatDate, overdueText, sydneyDate } from './dates.ts';
 
-export type ChipTone = 'overdue' | 'due-soon' | 'paid' | 'neutral';
+/**
+ * The chip's colour pair and icon (src/ui/controls.tsx). Invoice states use overdue, due-soon, paid and neutral; ready
+ * is approved and not sent yet, info explains, apprentice marks the apprentice's drafts, and selected is a current choice.
+ */
+export type ChipTone = 'overdue' | 'due-soon' | 'paid' | 'neutral' | 'ready' | 'info' | 'apprentice' | 'selected';
 
 export type Tone = 'gentle' | 'standard' | 'firm';
 export type CancelReason = 'invoice_paid' | 'invoice_closed' | 'amount_changed' | 'due_date_changed' | 'client_paused' | 'email_missing' | 'superseded';
@@ -73,6 +77,16 @@ export const invoiceChip = (
 
 /** A days-overdue chip for lists that already know the count (Home's biggest overdue). */
 export const overdueChip = (days: number): Chip => ({ label: `Overdue · ${days} ${days === 1 ? 'day' : 'days'}`, tone: 'overdue' });
+
+/** "NH" for "Northshore Homes (Test data)": a client's avatar, up to two letters, leaving out anything in brackets. */
+export const initials = (name: string): string => {
+  const words = name
+    .replace(/\([^)]*\)/g, ' ')
+    .split(/\s+/)
+    .filter((word) => /[\p{L}\p{N}]/u.test(word));
+  const letters = words.slice(0, 2).map((word) => (word.match(/[\p{L}\p{N}]/u)?.[0] ?? '').toUpperCase());
+  return letters.join('') || '?';
+};
 
 /** "Steve" from "Steve Smith": the owner's first name, used in "Approved. Steve sends it." */
 export const firstName = (name: string): string => name.trim().split(/\s+/)[0] ?? name;

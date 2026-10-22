@@ -93,7 +93,7 @@ The engine files sit next to the page in `pglite/`. The file-system bundle ships
 | `src/backend/` | The `Backend` interface (`types.ts`), the Supabase adapter, the preview adapter, error messages by database error code (`errors.ts`) and the generated `database.types.ts` |
 | `src/app/` | Router (addresses always say where you are), session and roles, data fetching with TanStack Query, messages with Undo, the shell and its banners |
 | `src/screens/` | One file or folder per screen |
-| `src/ui/` | Buttons, fields, chips, banners and sheets (native `<dialog>`), styled with the UI brief's tokens in `src/styles.css` |
+| `src/ui/` | Buttons, fields, chips, banners, icon tiles and sheets (native `<dialog>`), styled with the tokens in `src/styles.css`; their sources and licences are in `THIRD_PARTY_NOTICES.md` at the repository root |
 | `src/lib/` | Pure logic with unit tests: money, Sydney dates, import rows, draft checks and the email link, activity log sentences, CSV export |
 | `src/workers/` | Reads CSV files off the main thread |
 | `build/plugins.ts` | The security policy, service worker, 404 page and the preview's engine files |
@@ -106,7 +106,8 @@ Rules the code keeps:
 - Screens never change money or dates on their own: they call a function, then refetch.
 - No change is queued while offline: the app says "You're offline. Your place is saved." and the change is not made. A screen that hasn't loaded yet says "You're offline. This will load when you're back online." rather than looking empty.
 - Signing out forgets the session and the person's details on this device, even offline.
-- No third-party scripts, fonts or trackers, and no personal data in the console.
+- No third-party scripts or trackers, nothing loaded from another site, and no personal data in the console. The one font, Inter, ships with the app (`src/assets/fonts/`; licence in `public/fonts/OFL.txt`).
+- Every colour has one job: blue for actions, links, focus and navigation; violet for the apprentice's drafts; ink, with a tick, for a selection; and six status tones, always beside a word and an icon.
 - Words come from the App Flow and the UI brief, in Australian English. Test data is always labelled "Test data".
 
 AI use: Team W14A-5 used [AI tools: completed at final assembly] to help draft and structure this document. Every claim, figure and quote was checked against its source by a team member, and the team takes responsibility for the content.

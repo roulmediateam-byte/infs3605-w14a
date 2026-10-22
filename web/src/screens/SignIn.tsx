@@ -6,8 +6,8 @@ import { toHref } from '../app/router.tsx';
 import { AppError, MESSAGES, toAppError } from '../backend/errors.ts';
 import type { AuthUser, PreviewStorage } from '../backend/types.ts';
 import { KEYS, readItem, writeItem } from '../lib/storage.ts';
+import { BrandFrame } from '../ui/BrandFrame.tsx';
 import { Banner, Button, FormError, PageTitle, TextField } from '../ui/controls.tsx';
-import { AppMark } from '../ui/AppMark.tsx';
 
 const RESEND_SECONDS = 60;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -53,7 +53,7 @@ const PreviewPeople = () => {
 
   return (
     <section className="card stack" aria-labelledby="preview-people-heading">
-      <h2 className="t-heading" id="preview-people-heading">
+      <h2 className="t-subheading" id="preview-people-heading">
         Try it with made-up Test data
       </h2>
       {PREVIEW_PEOPLE.map((person, index) => (
@@ -272,11 +272,7 @@ export const SignInScreen = ({ next }: { next: string | null }) => {
   }, [next]);
   const storageLine = backend.preview ? storageNotice(backend.preview.storage) : null;
   return (
-    <main className="sign-in" id="main">
-      <div className="brand">
-        <AppMark />
-        <span>Get-Paid Apprentice</span>
-      </div>
+    <BrandFrame>
       <div className="stack-lg">
         <PageTitle documentTitle="Sign in">Sign in</PageTitle>
         {notice ? <Banner>{notice}</Banner> : null}
@@ -300,6 +296,6 @@ export const SignInScreen = ({ next }: { next: string | null }) => {
         ) : null}
         <CodeSignIn onSignedIn={(user) => signedIn(user)} autoFocus={!backend.preview} quietSubmit={Boolean(backend.preview)} />
       </div>
-    </main>
+    </BrandFrame>
   );
 };

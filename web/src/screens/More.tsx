@@ -1,7 +1,7 @@
 // More: Import, Activity log, Settings (owner), Contact the team, Keyboard shortcuts (on a computer) and Sign out.
 // "Contact the team" sits in the same place on every screen's More (WCAG 3.2.6) and sends the business's code only.
 // The preview adds Sunday's drafting run at the top, the demo's key step, and "Reset demo data" at the bottom.
-import { Building2, ChevronRight, Keyboard, LogOut, MessageCircle, ScrollText, Settings, Upload } from 'lucide-react';
+import { Building2, ChevronRight, FlaskConical, Keyboard, LogOut, MessageCircle, RotateCcw, ScrollText, Settings, Upload } from 'lucide-react';
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { config, screenEnabled } from '../app/config.ts';
 import { useMessages } from '../app/messages.tsx';
@@ -9,7 +9,7 @@ import { useAction } from '../app/queries.ts';
 import { Link } from '../app/router.tsx';
 import { useBackend, useBusiness, useSession } from '../app/session.tsx';
 import { KEYS, readItem, writeItem } from '../lib/storage.ts';
-import { Button, PageTitle } from '../ui/controls.tsx';
+import { Button, IconTile, PageTitle } from '../ui/controls.tsx';
 import { Sheet } from '../ui/Sheet.tsx';
 
 const desktopQuery = '(hover: hover) and (pointer: fine)';
@@ -32,7 +32,11 @@ export const useRunDrafting = () => {
   const { show } = useMessages();
   const runNow = () =>
     void run('weekly-run', () => backend.preview?.runWeeklyRun() ?? Promise.resolve({ drafted: 0 }), { refresh: 'wait' }).then((result) =>
-      show({ text: result.ok ? `Your apprentice drafted ${result.value.drafted === 1 ? '1 reminder' : `${result.value.drafted} reminders`}.` : result.error.message }),
+      show(
+        result.ok
+          ? { text: `Your apprentice drafted ${result.value.drafted === 1 ? '1 reminder' : `${result.value.drafted} reminders`}.` }
+          : { text: result.error.message, tone: 'critical' },
+      ),
     );
   return { runNow, busy: busy === 'weekly-run' };
 };
@@ -53,7 +57,8 @@ const ResetDemo = () => {
 
   return (
     <section className="card stack-sm" aria-labelledby="preview-reset-heading">
-      <h2 className="t-heading" id="preview-reset-heading">
+      <h2 className="t-heading card-title" id="preview-reset-heading">
+        <IconTile icon={RotateCcw} size="sm" />
         Reset demo data
       </h2>
       <p className="t-secondary">
@@ -106,8 +111,10 @@ export const MoreScreen = () => {
         <PageTitle documentTitle="More">More</PageTitle>
       </div>
       {backend.preview && role !== 'admin' ? (
-        <section className="card stack-sm" aria-labelledby="preview-run-heading">
-          <h2 className="t-heading" id="preview-run-heading">
+        // The demo's key step, so it is the screen's one primary button, in an information-toned preview card.
+        <section className="card card-info stack-sm" aria-labelledby="preview-run-heading">
+          <h2 className="t-heading card-title" id="preview-run-heading">
+            <IconTile icon={FlaskConical} tone="info" size="sm" />
             Preview: Sunday's drafting run
           </h2>
           <p className="t-secondary">
@@ -115,7 +122,7 @@ export const MoreScreen = () => {
             last week's unsent drafts.
           </p>
           <div>
-            <Button variant="secondary" busy={drafting.busy} busyLabel="Drafting…" onClick={drafting.runNow}>
+            <Button variant="primary" busy={drafting.busy} busyLabel="Drafting…" onClick={drafting.runNow}>
               Run it now
             </Button>
           </div>
@@ -124,43 +131,43 @@ export const MoreScreen = () => {
       <ul className="menu">
         <li>
           <Link to="import">
-            <Upload size={20} strokeWidth={1.5} aria-hidden="true" /> Import invoices <ChevronRight className="chev" size={20} strokeWidth={1.5} aria-hidden="true" />
+            <IconTile icon={Upload} tone="action" size="sm" /> Import invoices <ChevronRight className="chev" size={20} strokeWidth={2} aria-hidden="true" />
           </Link>
         </li>
         <li>
           <Link to="log">
-            <ScrollText size={20} strokeWidth={1.5} aria-hidden="true" /> Activity log <ChevronRight className="chev" size={20} strokeWidth={1.5} aria-hidden="true" />
+            <IconTile icon={ScrollText} tone="action" size="sm" /> Activity log <ChevronRight className="chev" size={20} strokeWidth={2} aria-hidden="true" />
           </Link>
         </li>
         {role === 'owner' && screenEnabled('settings') ? (
           <li>
             <Link to="settings">
-              <Settings size={20} strokeWidth={1.5} aria-hidden="true" /> Settings <ChevronRight className="chev" size={20} strokeWidth={1.5} aria-hidden="true" />
+              <IconTile icon={Settings} tone="action" size="sm" /> Settings <ChevronRight className="chev" size={20} strokeWidth={2} aria-hidden="true" />
             </Link>
           </li>
         ) : null}
         {memberships.length > 1 ? (
           <li>
             <Link to="?choose=1">
-              <Building2 size={20} strokeWidth={1.5} aria-hidden="true" /> Switch business <ChevronRight className="chev" size={20} strokeWidth={1.5} aria-hidden="true" />
+              <IconTile icon={Building2} tone="action" size="sm" /> Switch business <ChevronRight className="chev" size={20} strokeWidth={2} aria-hidden="true" />
             </Link>
           </li>
         ) : null}
         <li>
           {contactHref ? (
             <a href={contactHref}>
-              <MessageCircle size={20} strokeWidth={1.5} aria-hidden="true" /> Contact the team
-              <ChevronRight className="chev" size={20} strokeWidth={1.5} aria-hidden="true" />
+              <IconTile icon={MessageCircle} tone="action" size="sm" /> Contact the team
+              <ChevronRight className="chev" size={20} strokeWidth={2} aria-hidden="true" />
             </a>
           ) : (
             <button type="button" disabled style={{ cursor: 'default' }}>
-              <MessageCircle size={20} strokeWidth={1.5} aria-hidden="true" /> Contact the team in your usual team channel
+              <IconTile icon={MessageCircle} size="sm" /> Contact the team in your usual team channel
             </button>
           )}
         </li>
         <li>
           <button type="button" onClick={() => void signOut()}>
-            <LogOut size={20} strokeWidth={1.5} aria-hidden="true" /> Sign out
+            <IconTile icon={LogOut} size="sm" /> Sign out
           </button>
         </li>
       </ul>
@@ -169,8 +176,9 @@ export const MoreScreen = () => {
       </p>
       {onComputer ? (
         <section className="card stack-sm" aria-labelledby="shortcuts-heading">
-          <h2 className="t-heading row" id="shortcuts-heading">
-            <Keyboard size={20} strokeWidth={1.5} aria-hidden="true" /> Keyboard shortcuts
+          <h2 className="t-heading card-title" id="shortcuts-heading">
+            <IconTile icon={Keyboard} size="sm" />
+            Keyboard shortcuts
           </h2>
           <label className="check">
             <input

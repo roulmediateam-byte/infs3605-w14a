@@ -95,7 +95,7 @@ export const Sheet = ({ open, onClose, title, children, footer, initialFocus, bu
       {open ? (
         <>
           <div className="sheet-head">
-            <h2 id={titleId} ref={titleRef} tabIndex={-1} className="t-heading">
+            <h2 id={titleId} ref={titleRef} tabIndex={-1} className="t-sheet-title">
               {title}
             </h2>
             {dismissible ? (

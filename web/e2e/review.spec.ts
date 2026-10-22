@@ -201,7 +201,10 @@ test('a reload while "Did it send?" is open asks again', async ({ page }) => {
   await question.getByRole('button', { name: 'Not yet', exact: true }).click();
   await page.goto('');
   await expect(page.getByRole('heading', { name: 'Ready to send (1)' })).toBeVisible();
-  await expect(page.getByText('Invoice 1066 · Send by Sun 9:00 pm')).toBeVisible();
+  // The row names the invoice, with its deadline as a chip in the ready tone.
+  const ready = page.locator('section', { has: page.getByRole('heading', { name: 'Ready to send (1)' }) });
+  await expect(ready.getByText('Invoice 1066', { exact: true })).toBeVisible();
+  await expect(ready.locator('.chip-ready', { hasText: 'Send by Sun 9:00 pm' })).toBeVisible();
 });
 
 test('a full review ends with the summary and the review is logged', async ({ page }) => {

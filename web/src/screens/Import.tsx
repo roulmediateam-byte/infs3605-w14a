@@ -3,7 +3,7 @@
 // invoices is stopped. The browser and the server read values with the same rules (lib/import-rows.ts).
 // The Check step names every invoice that will close and every reminder that will be cancelled, so "what will change"
 // is always the whole truth.
-import { MoveRight, Upload } from 'lucide-react';
+import { Check, CircleAlert, CircleCheck, CircleDashed, FileUp, MoveRight, TriangleAlert, Upload } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import './Import.css';
 import { useMessages } from '../app/messages.tsx';
@@ -36,7 +36,7 @@ import {
 import { formatAud, toJsonInteger } from '../lib/money.ts';
 import { listCounts, pluralise } from '../lib/words.ts';
 import type { CsvResponse } from '../workers/csv.worker.ts';
-import { Banner, Button, ErrorPanel, FormError, LoadingBlock, PageTitle, SelectField } from '../ui/controls.tsx';
+import { Banner, Button, ErrorPanel, FormError, IconTile, LoadingBlock, PageTitle, SelectField } from '../ui/controls.tsx';
 import { Sheet } from '../ui/Sheet.tsx';
 import { isPausedOffline } from '../ui/QueryState.tsx';
 
@@ -307,7 +307,15 @@ export const ImportScreen = () => {
         <PageTitle documentTitle="Import invoices">Import invoices</PageTitle>
         <ol className="stepper" aria-label={`Step ${stepIndex + 1} of 4`}>
           {STEPS.map((s, index) => (
-            <li key={s.id} aria-current={s.id === step ? 'step' : undefined} data-state={index < stepIndex ? 'done' : undefined}>
+            <li
+              key={s.id}
+              aria-current={s.id === step ? 'step' : undefined}
+              data-state={index < stepIndex || (step === 'done' && s.id === 'done') ? 'done' : undefined}
+            >
+              {/* A green tick for a done step, a blue number for this one, a slate ring for the rest; the words say it too. */}
+              <span className="step-mark" aria-hidden="true">
+                {index < stepIndex || (step === 'done' && s.id === 'done') ? <Check size={14} strokeWidth={3} /> : index + 1}
+              </span>
               {s.label}
               <span className="visually-hidden">{index < stepIndex ? ', done' : s.id === step ? ', current step' : ''}</span>
             </li>
@@ -342,6 +350,7 @@ export const ImportScreen = () => {
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
           >
+            <IconTile icon={FileUp} tone="info" size="lg" />
             <input
               ref={inputRef}
               type="file"
@@ -492,8 +501,9 @@ export const ImportScreen = () => {
             </div>
 
             {words?.closing ? (
-              <section aria-labelledby="closing-heading" className="stack-sm">
-                <h3 className="t-heading" id="closing-heading">
+              <section aria-labelledby="closing-heading" className="notice notice-warning stack-sm">
+                <h3 className="t-subheading notice-title" id="closing-heading">
+                  <TriangleAlert size={20} strokeWidth={2} aria-hidden="true" />
                   {words.closing.heading}
                 </h3>
                 <p>{words.closing.explanation}</p>
@@ -516,8 +526,9 @@ export const ImportScreen = () => {
             ) : null}
 
             {words?.cancelled ? (
-              <section aria-labelledby="cancelled-heading" className="stack-sm">
-                <h3 className="t-heading" id="cancelled-heading">
+              <section aria-labelledby="cancelled-heading" className="notice stack-sm">
+                <h3 className="t-subheading notice-title" id="cancelled-heading">
+                  <CircleDashed size={20} strokeWidth={2} aria-hidden="true" />
                   {words.cancelled.heading}
                 </h3>
                 <p>{words.cancelled.explanation}</p>
@@ -539,8 +550,9 @@ export const ImportScreen = () => {
             ) : null}
 
             {plan.problems.length > 0 ? (
-              <section aria-labelledby="problems-heading" className="stack-sm">
-                <h3 className="t-heading" id="problems-heading">
+              <section aria-labelledby="problems-heading" className="notice notice-critical stack-sm">
+                <h3 className="t-subheading notice-title" id="problems-heading">
+                  <CircleAlert size={20} strokeWidth={2} aria-hidden="true" />
                   {plan.problems.length === 1 ? "1 row can't be imported" : `${plan.problems.length} rows can't be imported`}
                 </h3>
                 <p className="t-caption">Row numbers match your spreadsheet. Fix them there and import again; the other rows don't wait for them.</p>
@@ -557,7 +569,7 @@ export const ImportScreen = () => {
 
             {/* Not a named region itself: the scrolling box below carries the heading's name, so it is said once. */}
             <section className="stack-sm">
-              <h3 className="t-heading" id="preview-heading">
+              <h3 className="t-subheading" id="preview-heading">
                 The first {Math.min(10, checked.length)} rows as we read them
               </h3>
               <SidewaysScroll labelledBy="preview-heading">
@@ -622,7 +634,8 @@ export const ImportScreen = () => {
       ) : null}
 
       {step === 'done' && result ? (
-        <section className="summary-card" aria-labelledby="done-heading" role="status">
+        <section className="summary-card import-done" aria-labelledby="done-heading" role="status">
+          <IconTile icon={CircleCheck} tone="success" size="lg" />
           <h2 className="t-title" id="done-heading" ref={stepHeadingRef} tabIndex={-1}>
             Done
           </h2>

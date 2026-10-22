@@ -1,6 +1,7 @@
 // A client's sheet (UI-09): fix a missing or wrong email (owner or checker; FR-10), set the tone (owner; FR-23) and
 // pause or resume reminders (owner; FR-26, BR-11). Pausing asks once and says what it cancels. The checker sees the
 // tone as a plain chip, and pausing is hidden rather than greyed out (App Flow, Journey 3).
+import { CirclePause, TriangleAlert } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { useMessages } from '../../app/messages.tsx';
 import { useOnline } from '../../app/online.ts';
@@ -112,13 +113,17 @@ export const ClientSheet = ({ clientId, onClose }: { clientId: string; onClose: 
       <div className="stack-lg">
         <div className="row-wrap">
           <Chip>{TONE_LABEL[client.tone]}</Chip>
-          {client.paused ? <Chip>Paused</Chip> : null}
-          {!client.email ? <Chip>No email</Chip> : null}
+          {client.paused ? <Chip icon={CirclePause}>Paused</Chip> : null}
+          {!client.email ? (
+            <Chip tone="due-soon" icon={TriangleAlert}>
+              No email
+            </Chip>
+          ) : null}
         </div>
 
         {canEditContact ? (
           <section className="stack-sm" aria-labelledby="contact-heading">
-            <h3 className="t-heading" id="contact-heading">
+            <h3 className="t-subheading" id="contact-heading">
               Email for reminders
             </h3>
             <TextField
@@ -150,7 +155,7 @@ export const ClientSheet = ({ clientId, onClose }: { clientId: string; onClose: 
 
         {isOwner ? (
           <section className="stack-sm" aria-labelledby="tone-heading">
-            <h3 className="t-heading" id="tone-heading">
+            <h3 className="t-subheading" id="tone-heading">
               Tone
             </h3>
             <Choices legend="Tone for this client" hideLegend segmented name={`tone-${client.id}`} value={pendingTone ?? client.tone} options={TONES} onChange={(tone) => void setTone(tone)} />
@@ -160,7 +165,7 @@ export const ClientSheet = ({ clientId, onClose }: { clientId: string; onClose: 
 
         {isOwner ? (
           <section className="stack-sm" aria-labelledby="pause-heading">
-            <h3 className="t-heading" id="pause-heading">
+            <h3 className="t-subheading" id="pause-heading">
               Reminders
             </h3>
             {client.paused ? (

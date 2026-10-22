@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { QueueItem } from '../../backend/types.ts';
 import { charactersLeft, diffWords, lockedFactsProblem, markLockedChanges, putAmountBack, type LockedFactsProblem } from '../../lib/drafts.ts';
 import { formatAud } from '../../lib/money.ts';
-import { Button, FormError, PageTitle, TextAreaField, TextField } from '../../ui/controls.tsx';
+import { Button, Chip, FormError, PageTitle, TextAreaField, TextField } from '../../ui/controls.tsx';
 import { useInsetRef } from '../../ui/insets.ts';
 import { Sheet } from '../../ui/Sheet.tsx';
 import { LockedFacts } from './DraftView.tsx';
@@ -152,7 +152,7 @@ export const EditDraft = ({
   return (
     <div className="review">
       <header className="review-top" ref={topInset}>
-        <div className="review-top-inner">
+        <div className="review-top-inner is-narrow">
           <button type="button" className="icon-button" aria-label="Close the editor" onClick={close}>
             <X size={20} strokeWidth={1.5} aria-hidden="true" />
           </button>
@@ -163,7 +163,11 @@ export const EditDraft = ({
       </header>
       <main className="review-body stack" id="main">
         <LockedFacts item={item} compact pinnedRef={pinnedInset} />
-        <p className="t-caption">Change the words as you like. Keep the amount and invoice number exactly as they are.</p>
+        {/* The apprentice's chip carries over from Review, so the draft keeps its identity while it changes. */}
+        <div className="edit-intro">
+          <Chip tone="apprentice">Draft · not sent yet</Chip>
+          <p className="t-caption">Change the words as you like. Keep the amount and invoice number exactly as they are.</p>
+        </div>
         {factError ? (
           <div className="fact-error stack-sm" id={FACT_ERROR_ID} ref={factRef} tabIndex={-1}>
             <p className="field-error" role="alert">

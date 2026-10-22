@@ -1,13 +1,20 @@
 // Short confirmations ("Sent. 3 left.", "Marked paid." with Undo) and screen-reader announcements. A message stays 6
 // seconds and holds while it is focused, or hovered unless it lies over a control the pointer may be heading for;
 // Undo is also kept on the record, so this is never the only chance (WCAG 2.2.1; UI brief, Components).
+import { CircleAlert, CircleCheck, Info, TriangleAlert, type LucideIcon } from 'lucide-react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+/** The message's tone picks its icon: a tick for done (the default), i for information, a triangle, a circled "!". */
+export type MessageTone = 'success' | 'info' | 'warning' | 'critical';
+
 export interface Message {
   text: string;
+  tone?: MessageTone;
   action?: { label: string; run: () => void | Promise<void> };
 }
+
+const MESSAGE_ICON: Record<MessageTone, LucideIcon> = { success: CircleCheck, info: Info, warning: TriangleAlert, critical: CircleAlert };
 
 interface MessagesValue {
   show: (message: Message) => void;
@@ -77,6 +84,8 @@ export const MessagesProvider = ({ children }: { children: ReactNode }) => {
   }, [current, held]);
 
   const value = useMemo(() => ({ show, announce, dismiss }), [show, announce, dismiss]);
+  const tone = current?.tone ?? 'success';
+  const ToneIcon = MESSAGE_ICON[tone];
 
   // An open modal sheet makes the rest of the page inert, so messages move into the top sheet while one is open:
   // otherwise "Marked paid. Undo" would sit behind it, out of reach and unannounced. There they are a status line
@@ -98,7 +107,7 @@ export const MessagesProvider = ({ children }: { children: ReactNode }) => {
       <div className="toast-region" role="status" aria-live="polite" aria-atomic="true">
         {current ? (
           <div
-            className="toast"
+            className={`toast toast-${tone}`}
             key={current.id}
             onMouseEnter={(event) => {
               if (!coversControl(event.currentTarget)) setHeld(true);
@@ -107,6 +116,7 @@ export const MessagesProvider = ({ children }: { children: ReactNode }) => {
             onFocus={() => setHeld(true)}
             onBlur={() => setHeld(false)}
           >
+            <ToneIcon className="toast-icon" size={20} strokeWidth={2} aria-hidden="true" />
             <span className="toast-text">{current.text}</span>
             {current.action ? (
               <button

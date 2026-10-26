@@ -2,7 +2,7 @@
   "name": "getpaid-apprentice-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Get-Paid Apprentice web app: screens UI-01 to UI-11 (Team W14A-5, INFS3605, UNSW).",
+  "description": "Payprentice web app: screens UI-01 to UI-11 (Team W14A-5, INFS3605, UNSW).",
   "type": "module",
   "engines": {
     "node": ">=22.18"
@@ -12,6 +12,7 @@
     "build": "tsc -b && vite build",
     "build:e2e": "node scripts/build-e2e.ts",
     "build:pages-e2e": "node scripts/build-pages-e2e.ts",
+    "demo": "node scripts/demo.ts",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",

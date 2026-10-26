@@ -5,7 +5,8 @@
 # so the bundle carries only publishable keys, kept as repository variables (not secrets): they are public by design
 # and the data stays behind row-level security. Repository variables used:
 #   DEV_SUPABASE_URL, DEV_SUPABASE_PUBLISHABLE_KEY, PILOT_SUPABASE_URL, PILOT_SUPABASE_PUBLISHABLE_KEY,
-#   SUPPORT_EMAIL (Contact the team), DEMO_HIDE_SCREENS (for example "invoices,clients,settings" until Sun 1 Nov 2026).
+#   SUPPORT_EMAIL (Contact the team), DEMO_HIDE_SCREENS (for example "invoices,clients,settings" until Sun 1 Nov 2026),
+#   SIGN_IN_EMAIL ("link" while the project uses Supabase's built-in email, which sends a link and no code).
 name: Deploy the web app
 
 on:
@@ -79,6 +80,7 @@ jobs:
           DEV_URL: ${{ vars.DEV_SUPABASE_URL }}
           DEV_KEY: ${{ vars.DEV_SUPABASE_PUBLISHABLE_KEY }}
           VITE_SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+          VITE_SIGN_IN_EMAIL: ${{ vars.SIGN_IN_EMAIL }}
         run: |
           export VITE_SUPABASE_URL="${PILOT_URL:-$DEV_URL}"
           export VITE_SUPABASE_PUBLISHABLE_KEY="${PILOT_KEY:-$DEV_KEY}"
@@ -92,6 +94,12 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DEV_SUPABASE_PUBLISHABLE_KEY }}
           VITE_SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
           VITE_HIDE_SCREENS: ${{ vars.DEMO_HIDE_SCREENS }}
+          VITE_SIGN_IN_EMAIL: ${{ vars.SIGN_IN_EMAIL }}
+          # "Run it now" for the owner of a Test data business (supabase/functions/demo-weekly-run).
+          VITE_DEMO_TOOLS: 'on'
+          # "Create an account" with a made-up email and a password, each with its own Test data business
+          # (supabase/functions/demo-sign-up; deploy it to the dev project first).
+          VITE_DEMO_SIGN_UP: 'on'
         run: |
           npx vite build --outDir ../site/demo --emptyOutDir
           rm -f ../site/demo/404.html

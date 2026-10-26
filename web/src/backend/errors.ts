@@ -27,9 +27,16 @@ export const MESSAGES = {
   signedOut: 'Your session ended. Sign in again to carry on.',
   uninvited: 'Ask the owner to invite you.',
   rateLimit: 'Wait a minute, then ask again.',
-  badCode: "That code didn't work. It may have expired. Send a new one.",
+  badCode: "That code didn't work. Check the 6 digits, or ask for a new code.",
   badLink: "That sign-in link didn't work. It may have expired or been used. Send a new code.",
+  // When the sign-in email holds only a link (config.signInEmail "link"): Supabase's built-in email.
+  badLinkOnly: "That sign-in link didn't work. It may have expired or been used. Send a new link.",
+  notALink: "That isn't a sign-in link. Copy the whole link or address, starting with http.",
+  emailLimit: 'Too many sign-in emails for now: this project sends at most 2 an hour. Use the last link we sent, or try again later.',
   notAllowedValue: "That value isn't allowed. Check the field, then try again.",
+  // The demonstration build's sign-up (config.demoSignUp).
+  badPassword: "That email and password don't match. Check them, or create a new account.",
+  signUpFailed: "Couldn't make the account. Try again in a minute.",
 } as const;
 
 interface DatabaseErrorLike {

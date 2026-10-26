@@ -1,8 +1,9 @@
 // The real backend: supabase-js against the Supabase project (TRD, Architecture). The browser holds only the
 // publishable key; row-level security and the role check at the top of every function decide what happens.
-import { createClient, isAuthRetryableFetchError, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, FunctionsHttpError, isAuthRetryableFetchError, type SupabaseClient } from '@supabase/supabase-js';
 import { config } from '../app/config.ts';
 import type { LogEntry } from '../lib/activity.ts';
+import { readSignInLink } from '../lib/sign-in-link.ts';
 import type { Database } from './database.types.ts';
 import { AppError, fromAuthError, fromDatabaseError, MESSAGES } from './errors.ts';
 import type {
@@ -15,6 +16,7 @@ import type {
   ConfirmSentResult,
   DeleteResult,
   DraftRecord,
+  DraftingRunResult,
   DraftStatus,
   ImportResult,
   ImportSummary,
@@ -95,6 +97,9 @@ const forgetStoredSession = (key: string): void => {
   }
 };
 
+/** What to say about a sign-in link that didn't work: send a new code, or a new link when the email has no code. */
+const badLinkMessage = (): string => (config.signInEmail === 'link' ? MESSAGES.badLinkOnly : MESSAGES.badLink);
+
 /**
  * The emailed sign-in link lands with the session in the address's fragment (#access_token=...&refresh_token=...).
  * The fragment is taken out with replaceState before anything else, so the tokens are never kept in the browser's
@@ -108,10 +113,56 @@ const takeSessionFromLink = async (client: SupabaseClient<Database>): Promise<st
   window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
   const accessToken = params.get('access_token');
   const refreshToken = params.get('refresh_token');
-  if (!accessToken || !refreshToken) return MESSAGES.badLink;
+  if (!accessToken || !refreshToken) return badLinkMessage();
   const { error } = await client.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
   if (!error) return null;
-  return isAuthRetryableFetchError(error) ? MESSAGES.network : MESSAGES.badLink;
+  return isAuthRetryableFetchError(error) ? MESSAGES.network : badLinkMessage();
+};
+
+/** The demonstration "Run it now" function's refusal (supabase/functions/demo-weekly-run/handler.ts), as an AppError. */
+const fromDraftingRefusal = async (error: unknown): Promise<AppError> => {
+  if (!(error instanceof FunctionsHttpError)) {
+    return navigator.onLine === false ? new AppError('offline', MESSAGES.offline) : new AppError('network', MESSAGES.network);
+  }
+  const response = error.context as Response;
+  let body: { error?: string; code?: string } = {};
+  try {
+    body = (await response.json()) as { error?: string; code?: string };
+  } catch {
+    // Not the function's own answer (the platform refused first): fall back on the status.
+  }
+  if (response.status === 401 || body.code === 'signed_out') return new AppError('signed-out', MESSAGES.signedOut);
+  if (body.code === 'not_owner') return new AppError('permission', body.error ?? MESSAGES.permission);
+  if (body.code === 'not_test_data' || body.code === 'busy' || body.code === 'business') return new AppError('rule', body.error ?? MESSAGES.unknown);
+  return new AppError('unknown', body.error ?? MESSAGES.unknown);
+};
+
+/** The demonstration sign-up function's refusal (supabase/functions/demo-sign-up/handler.ts), as an AppError. */
+const fromSignUpRefusal = async (error: unknown): Promise<AppError> => {
+  if (!(error instanceof FunctionsHttpError)) {
+    return navigator.onLine === false ? new AppError('offline', MESSAGES.offline) : new AppError('network', MESSAGES.network);
+  }
+  const response = error.context as Response;
+  let body: { error?: string; code?: string } = {};
+  try {
+    body = (await response.json()) as { error?: string; code?: string };
+  } catch {
+    // Not the function's own answer (the platform refused first): fall back on the status.
+  }
+  const code = body.code ?? null;
+  if (response.status === 401 || code === 'signed_out') return new AppError('signed-out', MESSAGES.signedOut, { code });
+  if (code === 'exists') return new AppError('exists', body.error ?? MESSAGES.signUpFailed, { code });
+  if (response.status === 429) return new AppError('rate-limit', body.error ?? MESSAGES.rateLimit, { code });
+  if (body.error && response.status < 500) return new AppError('rule', body.error, { code });
+  return new AppError('unknown', body.error ?? MESSAGES.signUpFailed, { code });
+};
+
+/** A password sign-in that didn't work: Supabase Auth says invalid_credentials for any mismatch, by design. */
+const fromPasswordError = (error: { code?: string; status?: number; message?: string; name?: string }): AppError => {
+  if (error.code === 'invalid_credentials' || /invalid login credentials/i.test(error.message ?? '')) {
+    return new AppError('code', MESSAGES.badPassword, { code: error.code ?? null });
+  }
+  return fromAuthError(error);
 };
 
 export const createSupabaseBackend = async (url: string, publishableKey: string): Promise<Backend> => {
@@ -166,6 +217,26 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
   const userOf = (user: { id: string; email?: string | null } | null | undefined): AuthUser | null =>
     user ? { id: user.id, email: user.email ?? '' } : null;
 
+  /** The demonstration build's password sign-in (config.demoSignUp). */
+  const signInWithPassword = async (email: string, password: string): Promise<AuthUser> => {
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw fromPasswordError(error);
+    const user = userOf(data.user);
+    if (!user) throw new AppError('code', MESSAGES.badPassword);
+    return user;
+  };
+
+  /** The demonstration build's sign-up: the function makes the account and its Test data business, then this signs in. */
+  const signUp = async (email: string, password: string): Promise<AuthUser> => {
+    const { error } = await client.functions.invoke('demo-sign-up', { body: { email, password } });
+    if (error) {
+      const refusal = await fromSignUpRefusal(error);
+      // The account was made but its business wasn't: sign in anyway, and the session asks for it again (ensure).
+      if (refusal.code !== 'provision_failed') throw refusal;
+    }
+    return signInWithPassword(email, password);
+  };
+
   const tables = {
     count: async (table: 'clients' | 'invoices' | 'reminder_drafts' | 'imports' | 'activity_log' | 'attention_items' | 'memberships', businessId: string) => {
       const response = await client.from(table).select('id', { count: 'exact', head: true }).eq('business_id', businessId);
@@ -200,6 +271,26 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
         if (!user) throw new AppError('code', MESSAGES.badCode);
         return user;
       },
+      async signInWithLink(pasted) {
+        // The emailed link, or the address it opened: either finishes the sign-in here, on this device, whichever page
+        // the link opened (a phone's email app, or Supabase's default Site URL, http://localhost:3000).
+        const link = readSignInLink(pasted);
+        if (!link) throw new AppError('code', MESSAGES.notALink);
+        if (link.kind === 'expired') throw new AppError('code', badLinkMessage());
+        const { data, error } =
+          link.kind === 'session'
+            ? await client.auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
+            : await client.auth.verifyOtp({ token_hash: link.tokenHash, type: link.type });
+        if (error) {
+          const appError = fromAuthError(error);
+          if (appError.kind === 'network' || appError.kind === 'offline' || appError.kind === 'rate-limit') throw appError;
+          throw new AppError('code', badLinkMessage(), { code: appError.code });
+        }
+        const user = userOf(data.user);
+        if (!user) throw new AppError('code', badLinkMessage());
+        return user;
+      },
+      ...(config.demoSignUp ? { signUp, signInWithPassword } : {}),
       async signOut() {
         // Forget the session on this device first. supabase-js keeps it when it can't refresh an expired token
         // before signing out (offline), which would leave a shared phone signed in (Engineering review).
@@ -212,6 +303,37 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
         if (accessToken && navigator.onLine !== false) void client.auth.admin.signOut(accessToken, 'local').catch(() => undefined);
       },
     },
+
+    ...(config.demoTools
+      ? {
+          // The demonstration build's "Run it now": the scheduled job's run, started by the owner of a Test data business.
+          async runDraftingNow(businessId: string): Promise<DraftingRunResult> {
+            await ensureSession();
+            const { data, error } = await client.functions.invoke<{ drafted?: number; claude?: boolean }>('demo-weekly-run', {
+              body: { business_id: businessId },
+            });
+            if (error) throw await fromDraftingRefusal(error);
+            return { drafted: data?.drafted ?? 0, claude: data?.claude === true };
+          },
+        }
+      : {}),
+
+    ...(config.demoSignUp
+      ? {
+          // A demonstration account with no business gets its Test data business back (demo-sign-up, "ensure").
+          async ensureDemoBusiness(): Promise<boolean> {
+            await ensureSession();
+            const { data, error } = await client.functions.invoke<{ business?: string }>('demo-sign-up', { body: { action: 'ensure' } });
+            if (error) {
+              const refusal = await fromSignUpRefusal(error);
+              // An account made some other way: it waits for an invitation, as before.
+              if (refusal.code === 'not_demo') return false;
+              throw refusal;
+            }
+            return data?.business === 'created' || data?.business === 'exists';
+          },
+        }
+      : {}),
 
     acceptInvitations: () => rpc<Membership[]>('accept_invitations', {}),
     getBriefing: (businessId) => rpc<Briefing>('get_briefing', { p_business_id: businessId } satisfies Database['public']['Functions']['get_briefing']['Args']),

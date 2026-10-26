@@ -12,6 +12,12 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # A new push to the same pull request (or a new manual run on the same branch) stops the evaluation it replaces,
+  # which saves its minutes and its 30 model calls.
+  group: prompt-eval-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   evaluate:
     runs-on: ubuntu-latest

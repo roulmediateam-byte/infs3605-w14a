@@ -99,7 +99,7 @@ export function renderBriefing(briefing: Briefing, appUrl: string): RenderedEmai
   if (briefing.paused_clients.length > 0) {
     lines.push(`Paused: ${briefing.paused_clients.map((client) => `${client.name} (${formatAud(client.overdue_cents)} overdue)`).join('; ')}`, '');
   }
-  lines.push('Get-Paid Apprentice. Every reminder waits for your approval. Change the briefing time in Settings.');
+  lines.push('Payprentice. Every reminder waits for your approval. Change the briefing time in Settings.');
   const text = lines.join('\n');
 
   return {
@@ -124,7 +124,7 @@ export function renderNudge(
     '',
     `Review drafts: ${appUrl}/review`,
     '',
-    'Get-Paid Apprentice. You get this email once a week at most.',
+    'Payprentice. You get this email once a week at most.',
   ].join('\n');
   return { subject, text, html: toHtml(subject, text, { label: 'Review drafts', url: `${appUrl}/review` }, PREVIEW_TEXT) };
 }

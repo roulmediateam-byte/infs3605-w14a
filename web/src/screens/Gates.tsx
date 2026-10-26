@@ -2,17 +2,13 @@
 import { config } from '../app/config.ts';
 import { Link } from '../app/router.tsx';
 import { useSession } from '../app/session.tsx';
+import { BrandFrame } from '../ui/BrandFrame.tsx';
 import { Button, ErrorPanel, PageTitle } from '../ui/controls.tsx';
-import { AppMark } from '../ui/AppMark.tsx';
 
 const Frame = ({ children }: { children: React.ReactNode }) => (
-  <main className="sign-in" id="main">
-    <div className="brand">
-      <AppMark />
-      <span>Get-Paid Apprentice</span>
-    </div>
+  <BrandFrame>
     <div className="stack-lg">{children}</div>
-  </main>
+  </BrandFrame>
 );
 
 /** Signed in, but no business: "Ask the owner to invite you, or contact the team" (FR-01). */
@@ -25,7 +21,7 @@ export const NoBusinessScreen = () => {
         Ask the owner to invite you, or contact the team. You're signed in as <strong>{user?.email}</strong>.
       </p>
       {config.supportEmail ? (
-        <a className="btn btn-secondary" href={`mailto:${config.supportEmail}?subject=${encodeURIComponent('Get-Paid Apprentice: no business yet')}`}>
+        <a className="btn btn-secondary" href={`mailto:${config.supportEmail}?subject=${encodeURIComponent('Payprentice: no business yet')}`}>
           Contact the team
         </a>
       ) : null}

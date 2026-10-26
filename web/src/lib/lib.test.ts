@@ -2,12 +2,24 @@ import { inflateRawSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { describe as describeEntry, type LogEntry, type LogLookups } from './activity.ts';
 import { addDays, daysOverdue, formatDate, formatDateLong, formatDay, formatTime, overdueText, parseAuDate, sydneyDate, thisWeeksSunday } from './dates.ts';
-import { buildMailto, checkLockedFacts, diffWords } from './drafts.ts';
+import { buildMailto, checkLockedFacts, diffWords, lockedFactsProblem, markLockedChanges, putAmountBack } from './drafts.ts';
 import { crc32, csvCell, exportEntries, toCsv, zip } from './export.ts';
 import { autoMap, checkRows, cleanEmail, clashingFields, detectFormat, missingFields, planImport, toImportRows, usableMapping, type ParsedFile } from './import-rows.ts';
 import { formatAud, parseAmountCents, toJsonInteger } from './money.ts';
-import { droppedNotes, initialReview, position, reviewReducer, sessionCounts, summaryLine } from './review-session.ts';
-import { invoiceChip, whyThisDraft } from './words.ts';
+import {
+  droppedNotes,
+  homeCard,
+  initialReview,
+  nextToSend,
+  position,
+  reviewReducer,
+  reviewSummary,
+  sessionCounts,
+  stillToSend,
+  summaryLine,
+  unsentInSession,
+} from './review-session.ts';
+import { initials, invoiceChip, NOT_SENT_YET, sendByLine, sentLeftToSend, waitingForOwnerLine, whyThisDraft } from './words.ts';
 import type { DraftRecord, QueueItem } from '../backend/types.ts';
 
 // A fixed moment: Thu 15 Oct 2026, 1:30 pm in Sydney (AEDT, UTC+11).
@@ -193,6 +205,63 @@ describe('drafts (FR-15, FR-18)', () => {
     expect(checkLockedFacts('Hi', `${body}${'a'.repeat(1800)}`, '1051', 845000)).toBe('Keep the message under 1,800 characters so it fits in your email app.');
   });
 
+  it('names the wrong amount, and refuses exactly what the server refuses', () => {
+    // The demonstration's "blocked" beat: the amount changed in the message.
+    const changed = body.replace('$8,450.00', '$8,000.00');
+    expect(lockedFactsProblem('Invoice 1051', changed, '1051', 845000)).toEqual({
+      server: 'Keep $8,450.00 and invoice 1051 as they are.',
+      message: 'The message says $8,000.00. Amounts come from your records, so keep $8,450.00.',
+      field: 'body',
+      wrong: '$8,000.00',
+      right: '$8,450.00',
+    });
+    expect(lockedFactsProblem('Discount $5', body, '1051', 845000)).toMatchObject({
+      message: 'The subject says $5. Amounts come from your records, so keep $8,450.00.',
+      field: 'subject',
+      wrong: '$5',
+    });
+    // An extra amount is named even though the locked one is still there.
+    expect(lockedFactsProblem('Invoice 1051', `${body} Or pay $100 now.`, '1051', 845000)?.wrong).toBe('$100');
+    // A changed invoice number has no amount to name, so the server's words stand.
+    expect(lockedFactsProblem('Invoice 1051', body.replace('Invoice 1051', 'Invoice 10512'), '1051', 845000)).toMatchObject({
+      message: 'Keep $8,450.00 and invoice 1051 as they are.',
+      wrong: null,
+    });
+    // An amount that runs from the subject into the message is refused, but not named.
+    expect(lockedFactsProblem('Pay $', `100 now. ${body}`, '1051', 845000)).toMatchObject({ server: 'Keep $8,450.00 and invoice 1051 as they are.', wrong: null });
+    expect(checkLockedFacts('Pay $', `100 now. ${body}`, '1051', 845000)).toBe('Keep $8,450.00 and invoice 1051 as they are.');
+    expect(lockedFactsProblem('Invoice 1051', body, '1051', 845000)).toBeNull();
+  });
+
+  it('puts the locked amount back wherever the wrong one was written', () => {
+    const changed = `${body.replace('$8,450.00', '$8,000.00')} Again, $8,000.00. Not $80.`;
+    const fixed = putAmountBack(changed, '$8,000.00', '$8,450.00');
+    expect(fixed).toContain('Invoice 1051 for $8,450.00 was due');
+    expect(fixed).toContain('Again, $8,450.00. Not $80.');
+    expect(lockedFactsProblem('Invoice 1051', fixed, '1051', 845000)?.wrong).toBe('$80');
+  });
+
+  it('marks a changed locked fact apart from ordinary changes', () => {
+    const before = 'Invoice 1051 for $8,450.00 was due.';
+    const after = 'Invoice 1051 for $8,000.00 was due last month.';
+    expect(markLockedChanges(diffWords(before, after), '1051', '$8,450.00')).toEqual([
+      { kind: 'same', text: 'Invoice 1051 for ' },
+      { kind: 'removed', text: '$8,450.00', locked: true },
+      { kind: 'added', text: '$8,000.00', locked: true },
+      { kind: 'same', text: ' was ' },
+      { kind: 'removed', text: 'due.' },
+      { kind: 'added', text: 'due last month.' },
+    ]);
+    // A removed invoice number is marked; the punctuation around it is not.
+    expect(markLockedChanges([{ kind: 'removed', text: '(1051),' }], '1051', '$8,450.00')).toEqual([
+      { kind: 'removed', text: '(' },
+      { kind: 'removed', text: '1051', locked: true },
+      { kind: 'removed', text: '),' },
+    ]);
+    // The locked amount added back somewhere else is not a change to warn about.
+    expect(markLockedChanges([{ kind: 'added', text: 'now $8,450.00' }], '1051', '$8,450.00')).toEqual([{ kind: 'added', text: 'now $8,450.00' }]);
+  });
+
   it('builds the email link with encodeURIComponent', () => {
     const link = buildMailto('pay+ar@northshore-homes.example', 'Invoice 1051 & more', 'Hi Priya,\nThanks');
     expect(link).toBe('mailto:pay%2Bar@northshore-homes.example?subject=Invoice%201051%20%26%20more&body=Hi%20Priya%2C%0D%0AThanks');
@@ -220,6 +289,28 @@ describe('status language', () => {
     const lines = whyThisDraft({ invoice_number: '1043', days_overdue: 14, reminders_sent_before: 0, tone: 'gentle', source: 'template', cooldownDays: 6 });
     expect(lines[0]).toBe('Drafted because invoice 1043 is 14 days overdue, the client has an email and no reminder has been sent for it yet. Tone: Gentle, set for this client.');
     expect(lines[1]).toBe("Your apprentice couldn't write this one, so it used the Gentle template.");
+    // The preview has no AI at all, so it doesn't report a failure.
+    const preview = whyThisDraft({ invoice_number: '1062', days_overdue: 45, reminders_sent_before: 1, tone: 'firm', source: 'template', cooldownDays: 6 }, { preview: true });
+    expect(preview[1]).toBe('This preview has no AI, so your apprentice used the Firm template.');
+    expect(whyThisDraft({ invoice_number: '1062', days_overdue: 45, reminders_sent_before: 1, tone: 'firm', source: 'ai', cooldownDays: 6 }, { preview: true })).toHaveLength(1);
+  });
+
+  it('gives each client an avatar of up to two letters, leaving out "(Test data)"', () => {
+    expect(initials('Northshore Homes (Test data)')).toBe('NH');
+    expect(initials('Greenway Strata (Test data)')).toBe('GS');
+    expect(initials('bayside')).toBe('B');
+    expect(initials('Smith & Sons Electrical')).toBe('SS');
+    expect(initials('Élan Fitouts')).toBe('ÉF');
+    expect(initials('(Test data)')).toBe('?');
+  });
+
+  it('words sending the same way everywhere', () => {
+    expect(NOT_SENT_YET).toBe('Not sent yet. It waits under Ready to send on Home.');
+    expect(sendByLine(2)).toBe("Send by Sun 9:00 pm, when Sunday's run replaces them.");
+    expect(sendByLine(1)).toBe("Send by Sun 9:00 pm, when Sunday's run replaces it.");
+    expect(waitingForOwnerLine('Alex', 4)).toBe("Waiting for Alex to send them by Sun 9:00 pm, when Sunday's run replaces them.");
+    expect(sentLeftToSend(1)).toBe('Sent. 1 left to send.');
+    expect(sentLeftToSend(0)).toBe('Sent. None left to send.');
   });
 
   it('writes log sentences', () => {
@@ -324,6 +415,67 @@ describe('a review session (FR-14, FR-19)', () => {
     expect(sessionCounts(state)).toMatchObject({ cancelled: 2, elsewhere: 0, waiting: 1 });
     // A record that can't be found reads as gone; a resolve for a draft that didn't drop out changes nothing.
     expect(reviewReducer(state, { type: 'resolve', id: 'c', record: null }).outcomes.c).toBeUndefined();
+  });
+
+  it('never says "All caught up" while an approved reminder is unsent', () => {
+    let state = reviewReducer(initialReview, { type: 'load', queue: [item('a', 3), item('b', 2), item('c', 1), item('d', 1)] });
+    state = reviewReducer(state, { type: 'outcome', id: 'a', outcome: { kind: 'sent', edited: false } });
+    state = reviewReducer(state, { type: 'outcome', id: 'b', outcome: { kind: 'not-yet', edited: false } });
+    // The Send sheet closed without an answer: still approved, still unsent.
+    state = reviewReducer(state, { type: 'outcome', id: 'c', outcome: { kind: 'approved', edited: true } });
+    state = reviewReducer(state, { type: 'outcome', id: 'd', outcome: { kind: 'rejected' } });
+    const counts = sessionCounts(state);
+    expect(unsentInSession(state)).toEqual(['b', 'c']);
+    // "z" was approved by the checker before this review; "a" was sent here, though the database list hasn't caught up.
+    expect(stillToSend(state, ['z', 'a', 'b'])).toEqual(['b', 'c', 'z']);
+    expect(reviewSummary(counts, true, 'Alex', 3)).toEqual({
+      title: '3 reminders still to send',
+      counts: '1 sent, 1 rejected, 2 waiting to send',
+      line: "Send by Sun 9:00 pm, when Sunday's run replaces them. They wait under Ready to send on Home.",
+    });
+    expect(reviewSummary(counts, true, 'Alex', 1).line).toBe("Send by Sun 9:00 pm, when Sunday's run replaces it. It waits under Ready to send on Home.");
+    // While the approved list hasn't loaded, the summary gives the counts and makes no claim.
+    expect(reviewSummary({ ...counts, notYet: 0, approved: 1 }, true, 'Alex', null)).toEqual({ title: '1 sent, 1 rejected', counts: null, line: null });
+    // Only when nothing is left to send is it all caught up.
+    expect(reviewSummary({ ...counts, notYet: 0, approved: 1 }, true, 'Alex', 0)).toEqual({ title: 'All caught up: 1 sent, 1 rejected', counts: null, line: null });
+    // A checker who may not send is told who does.
+    expect(reviewSummary(counts, false, 'Alex', null)).toEqual({
+      title: '3 approved for Alex to send, 1 rejected',
+      counts: null,
+      line: "Waiting for Alex to send them by Sun 9:00 pm, when Sunday's run replaces them.",
+    });
+  });
+
+  it('offers the next reminder to send, not the one just put off', () => {
+    expect(nextToSend([], null)).toBeNull();
+    expect(nextToSend(['b', 'c', 'z'], null)).toBe('b');
+    expect(nextToSend(['b', 'c', 'z'], 'b')).toBe('c'); // "Not yet" on b
+    expect(nextToSend(['b', 'c', 'z'], 'z')).toBe('b');
+    expect(nextToSend(['c', 'z'], 'b')).toBe('c'); // b was sent
+    expect(nextToSend(['c'], 'c')).toBe('c');
+  });
+
+  it("chooses Home's decision card: review, then send, then all caught up", () => {
+    const base = { sends: true, ownerSends: false, ownerFirstName: 'Alex' };
+    expect(homeCard({ ...base, waiting: 5, approved: 2 })).toEqual({ kind: 'review', title: '5 drafts need your OK', line: 'Nothing is sent until you approve and send it.' });
+    expect(homeCard({ ...base, waiting: 0, approved: 2 })).toEqual({
+      kind: 'send',
+      title: '2 reminders approved, not sent yet',
+      line: "Send by Sun 9:00 pm, when Sunday's run replaces them.",
+    });
+    expect(homeCard({ ...base, waiting: 0, approved: 1 }).title).toBe('1 reminder approved, not sent yet');
+    expect(homeCard({ ...base, waiting: 0, approved: 0 })).toEqual({ kind: 'done', title: 'All caught up', line: 'Your apprentice drafts again on Sunday.' });
+    // Until the approved reminders have loaded, the card doesn't claim the week is done.
+    expect(homeCard({ ...base, waiting: 0, approved: null }).kind).toBe('unknown');
+    expect(homeCard({ ...base, waiting: 0, approved: null }).title).not.toContain('caught up');
+    // A checker who may not send: the owner sends.
+    const checker = { sends: false, ownerSends: true, ownerFirstName: 'Alex' };
+    expect(homeCard({ ...checker, waiting: 1, approved: 1 }).line).toBe('Nothing is sent until you approve it and Alex sends it.');
+    expect(homeCard({ ...checker, waiting: 0, approved: 4 })).toEqual({
+      kind: 'send',
+      title: '4 reminders approved, not sent yet',
+      line: "Waiting for Alex to send them by Sun 9:00 pm, when Sunday's run replaces them.",
+    });
   });
 
   it('logs a review in plain words', () => {

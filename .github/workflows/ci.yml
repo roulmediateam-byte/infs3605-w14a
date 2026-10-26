@@ -1,23 +1,67 @@
-# Tests on every pull request and every push to main (NFR-08, NFR-16). Merging needs this to pass.
+# Continuous integration for every pull request, every push to main and manual runs. Merging needs all three jobs to
+# pass (NFR-08, NFR-16). "checks" always runs: the secret and personal-data scan, the scheduled-job code, and which of
+# the other two jobs this change needs (scripts/ci-changes.sh). "database" and "web" skip themselves when their files
+# didn't change, and a skipped job counts as passed. Never add `paths:` to the triggers: a workflow skipped that way
+# leaves its required checks "Pending" and blocks the merge. What runs when, and what it costs: docs/testing.md.
 name: CI
 
 on:
-  pull_request:
   push:
     branches: [main]
+  pull_request:
+    # ready_for_review: drafts skip the browser tests, so marking a pull request ready runs them.
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # One run per pull request: a new push cancels the run it replaces. Pushes to main and manual runs each get a group
+  # of their own, so none is cancelled and every commit on main keeps its result.
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
   cancel-in-progress: true
 
+# The job ids are the check names that branch protection requires (docs/runbook.md, "Owner settings checklist"), so
+# the jobs carry no display names. Rename a job only together with that setting.
 jobs:
-  database:
-    name: Database (migrations, seed, pgTAP)
+  checks:
+    # No secrets or personal data, then the scheduled-job code (types and unit tests). Every change, docs included:
+    # the hygiene check is the only secret scan a private repository on GitHub Free or Pro gets.
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
+    outputs:
+      database: ${{ steps.changes.outputs.database }}
+      web: ${{ steps.changes.outputs.web }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Two commits: a pull request's test merge and its base, or the pushed commit and the one before it.
+          fetch-depth: 2
+      - name: Which jobs this change needs
+        id: changes
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_FORCED: ${{ github.event.forced }}
+        run: bash scripts/ci-changes.sh
+      - name: No secrets or personal data
+        run: bash scripts/check-hygiene.sh
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Scheduled-job code, types
+        run: npm run typecheck
+      - name: Scheduled-job code, unit tests
+        run: npm run test:jobs
+
+  database:
+    # Migrations, seed and pgTAP tests, when supabase/ or scripts/test-local.sh changed.
+    needs: checks
+    if: needs.checks.outputs.database == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v5
       - uses: supabase/setup-cli@v1
@@ -28,24 +72,16 @@ jobs:
       - name: Run the pgTAP tests
         run: supabase test db
 
-  jobs:
-    name: Scheduled-job code (types and unit tests)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run test:jobs
-
   web:
-    name: Web app (types, units, build, end to end, accessibility)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Types, units, build, size budget, end to end and accessibility, when web/, supabase/ or the local stack changed.
+    # Draft pull requests stop before the browser tests. Ready pull requests and manual runs test on the phone and the
+    # computer; pushes to main on the phone only. The tests of the site as GitHub Pages serves it run with them.
+    needs: checks
+    if: needs.checks.outputs.web == 'true'
+    # Pinned: GitHub's ubuntu-latest is Ubuntu 26.04 since Oct 2026, where Playwright 1.56.1 can't install Chromium.
+    # Move to ubuntu-latest again once Playwright is upgraded past the version that adds 26.04.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     # The real migrations, row-level security and functions behind PostgREST, with a stand-in for Supabase Auth's
     # email codes (scripts/local-stack). Test data only (RI-9).
     services:
@@ -66,6 +102,7 @@ jobs:
       PGUSER: postgres
       PGPASSWORD: postgres
       LOCAL_STACK_OTP_INTERVAL: 1
+      BROWSER_TESTS: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -94,7 +131,7 @@ jobs:
       - name: Start the local stack
         run: |
           LOCAL_STACK_SKIP_SETUP=1 nohup node scripts/local-stack/gateway.ts > local-stack.log 2>&1 &
-          for attempt in $(seq 1 60); do curl -sf http://127.0.0.1:54321/__local/health && exit 0; sleep 1; done
+          for _ in $(seq 1 60); do curl -sf http://127.0.0.1:54321/__local/health && exit 0; sleep 1; done
           cat local-stack.log
           exit 1
       - name: Build against the local stack
@@ -104,15 +141,24 @@ jobs:
         working-directory: web
         run: npm run size
       - name: Browser for the end-to-end tests
+        if: env.BROWSER_TESTS == 'true'
         working-directory: web
         run: npx playwright install --with-deps chromium
-      - name: End-to-end and accessibility tests (phone and computer)
+      - name: End-to-end and accessibility tests (phone and computer; phone only on main)
+        if: env.BROWSER_TESTS == 'true'
         working-directory: web
-        run: npx playwright test
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            npx playwright test --project=phone
+          else
+            npx playwright test
+          fi
       - name: Build the site the way GitHub Pages serves it (root and /demo/)
+        if: env.BROWSER_TESTS == 'true'
         working-directory: web
         run: npm run build:pages-e2e
       - name: Deep links, both builds and speed budgets, through a stand-in for GitHub Pages
+        if: env.BROWSER_TESTS == 'true'
         working-directory: web
         run: npx playwright test -c playwright.pages.config.ts
       - name: Keep the reports when something fails
@@ -125,11 +171,3 @@ jobs:
             web/playwright-report-pages
             local-stack.log
           retention-days: 7
-
-  hygiene:
-    name: No secrets or personal data
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v5
-      - run: bash scripts/check-hygiene.sh

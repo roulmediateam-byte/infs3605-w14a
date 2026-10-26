@@ -1,4 +1,4 @@
--- Get-Paid Apprentice · migration 5 of 7 · row-level security (NFR-05)
+-- Payprentice · migration 5 of 7 · row-level security (NFR-05)
 -- Members read their own businesses' rows. Nobody writes to a table directly: every write goes through a
 -- public function that checks the role (migration 6) or a job function run by the service role (migration 7).
 -- Policies use the pattern Supabase recommends for team data: business_id in (select private.my_business_ids()).

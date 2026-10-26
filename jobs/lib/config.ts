@@ -32,7 +32,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     aiTemperature: parseTemperature(env.AI_TEMPERATURE),
     aiTimeoutMs: 20_000,
     resendKey: optional('RESEND_API_KEY'),
-    emailFrom: optional('EMAIL_FROM') ?? 'Get-Paid Apprentice <briefing@example.com>',
+    emailFrom: optional('EMAIL_FROM') ?? 'Payprentice <briefing@example.com>',
     appUrl: (optional('APP_URL') ?? 'http://localhost:5173').replace(/\/+$/, ''),
     alertEmail: optional('ALERT_EMAIL'),
     githubRunUrl:

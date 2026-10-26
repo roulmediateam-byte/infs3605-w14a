@@ -90,10 +90,14 @@ jobs:
       - name: Add the owner and the checker as sign-in users (sign-ups are off)
         run: |
           set -euo pipefail
+          # As in jobs/lib/db.ts: a legacy service_role key is a JSON Web Token and also goes in Authorization;
+          # a new secret key (sb_secret_...) goes in the apikey header only.
+          auth=()
+          case "$SERVICE_KEY" in eyJ*) auth=(-H "Authorization: Bearer $SERVICE_KEY") ;; esac
           for email in "$OWNER_EMAIL" "$CHECKER_EMAIL"; do
             body="$(jq -n --arg email "$email" '{email: $email, email_confirm: true}')"
             code="$(curl -sS -o response.json -w '%{http_code}' -X POST "${SUPABASE_URL%/}/auth/v1/admin/users" \
-              -H "apikey: $SERVICE_KEY" -H "Authorization: Bearer $SERVICE_KEY" \
+              -H "apikey: $SERVICE_KEY" "${auth[@]}" \
               -H 'Content-Type: application/json' -d "$body")"
             if [ "$code" = "200" ] || [ "$code" = "201" ]; then
               echo "Added a sign-in user."

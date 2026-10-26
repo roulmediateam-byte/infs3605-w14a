@@ -3,7 +3,7 @@
 // "3 of 5" after two decisions. A draft that leaves the queue during the session drops out with a note saying who
 // decided it or that it was cancelled ("Linda approved 1 while you were reviewing"), and the count stays.
 import type { CancelReason, DraftRecord, DraftStatus, QueueItem } from '../backend/types.ts';
-import { listCounts, pluralise } from './words.ts';
+import { listCounts, pluralise, sendByLine, waitingForOwnerLine } from './words.ts';
 
 /** Whether a draft left the queue while it was on screen (it explains itself in place) or while it wasn't (a note). */
 export type Dropped = 'on-screen' | 'away';
@@ -151,19 +151,23 @@ export const sessionCounts = (state: ReviewState): SessionCounts => {
   return counts;
 };
 
+/** "3 sent, 1 rejected, 1 waiting to send": the session's counts for someone who sends. */
+const sendersCounts = (counts: SessionCounts): string =>
+  listCounts([
+    [counts.sent, 'sent'],
+    [counts.rejected, 'rejected'],
+    [counts.notYet, 'waiting to send'],
+    [counts.cancelled, 'cancelled'],
+    [counts.elsewhere, 'decided by someone else'],
+  ]);
+
 /**
  * The end-of-review line: "All caught up: 3 sent, 1 rejected, 1 waiting to send" for someone who sends, or
  * "4 approved for Steve to send, 1 rejected" for a checker who may not (App Flow, Journeys 2 and 3).
  */
 export const summaryLine = (counts: SessionCounts, sends: boolean, ownerFirstName: string): string => {
   if (sends) {
-    const list = listCounts([
-      [counts.sent, 'sent'],
-      [counts.rejected, 'rejected'],
-      [counts.notYet, 'waiting to send'],
-      [counts.cancelled, 'cancelled'],
-      [counts.elsewhere, 'decided by someone else'],
-    ]);
+    const list = sendersCounts(counts);
     return list ? `All caught up: ${list}` : 'All caught up';
   }
   const list = listCounts([
@@ -173,6 +177,113 @@ export const summaryLine = (counts: SessionCounts, sends: boolean, ownerFirstNam
     [counts.elsewhere, 'decided by someone else'],
   ]);
   return list || 'All caught up';
+};
+
+// ---------------------------------------------------------------------------------------------
+// Done means sent. Nothing says "All caught up" while an approved reminder is still unsent, because the brief's
+// measure is that nobody believes a reminder went when it didn't (UI brief, What success looks like).
+// ---------------------------------------------------------------------------------------------
+
+/** Drafts approved in this session and not sent yet, in the session's order: "Not yet" and a closed Send sheet alike. */
+export const unsentInSession = (state: ReviewState): string[] =>
+  state.order.filter((id) => {
+    const kind = state.outcomes[id]?.kind;
+    return kind === 'approved' || kind === 'not-yet';
+  });
+
+/**
+ * Every approved reminder still to send: this session's first, in its order, then any approved earlier or by
+ * someone else (approvedIds, read from the database), less any sent from this screen that the database list
+ * hasn't caught up with yet.
+ */
+export const stillToSend = (state: ReviewState, approvedIds: readonly string[]): string[] => {
+  const session = unsentInSession(state);
+  const sent = new Set(Object.keys(state.outcomes).filter((id) => state.outcomes[id]?.kind === 'sent'));
+  return [...session, ...approvedIds.filter((id) => !sent.has(id) && !session.includes(id))];
+};
+
+/** Approved reminders in the order they are offered for sending: the largest first, as Review orders drafts. */
+export const largestFirst = <T extends { id: string; amount_shown_cents: number }>(drafts: readonly T[]): T[] =>
+  [...drafts].sort((a, b) => b.amount_shown_cents - a.amount_shown_cents || a.id.localeCompare(b.id));
+
+/**
+ * "Send the next one": the first reminder still to send, or, when the last one offered is still unsent (the person
+ * said "Not yet" or closed the sheet), the one after it, so the same reminder isn't offered straight back.
+ */
+export const nextToSend = (ids: readonly string[], lastOffered: string | null): string | null => {
+  if (ids.length === 0) return null;
+  const at = lastOffered === null ? -1 : ids.indexOf(lastOffered);
+  return ids[at === -1 ? 0 : (at + 1) % ids.length] ?? null;
+};
+
+export interface ReviewSummary {
+  /** "2 reminders still to send", "All caught up: 3 sent, 1 rejected" or "4 approved for Steve to send, 1 rejected". */
+  title: string;
+  /** This session's counts, when the title doesn't carry them: "2 sent, 1 rejected, 2 waiting to send". */
+  counts: string | null;
+  /** What happens next, when something is still to send. */
+  line: string | null;
+}
+
+/**
+ * The end of a review (FR-19). For someone who sends, it says "All caught up" only when nothing approved is left
+ * unsent; toSend counts every approved reminder still to send, or is null while that isn't known yet, when the
+ * summary makes no claim either way. A checker who may not send is told who sends (D3).
+ */
+export const reviewSummary = (counts: SessionCounts, sends: boolean, ownerFirstName: string, toSend: number | null): ReviewSummary => {
+  if (!sends) {
+    return { title: summaryLine(counts, false, ownerFirstName), counts: null, line: counts.approved > 0 ? waitingForOwnerLine(ownerFirstName, counts.approved) : null };
+  }
+  const list = sendersCounts(counts);
+  if (toSend === null) return { title: list || 'Nothing left to review', counts: null, line: null };
+  if (toSend > 0) {
+    return { title: `${pluralise(toSend, 'reminder')} still to send`, counts: list || null, line: `${sendByLine(toSend)} ${toSend === 1 ? 'It waits' : 'They wait'} under Ready to send on Home.` };
+  }
+  return { title: list ? `All caught up: ${list}` : 'All caught up', counts: null, line: null };
+};
+
+export type HomeCardKind = 'review' | 'send' | 'done' | 'unknown';
+
+export interface HomeCard {
+  kind: HomeCardKind;
+  title: string;
+  line: string;
+}
+
+/**
+ * Home's decision card (UI-02), in three states: drafts waiting for review; otherwise approved reminders not sent
+ * yet; otherwise all caught up. approved is null while the approved reminders haven't loaded, and then the card
+ * claims nothing. ownerSends is false for a checker who may not send (D3): the owner sends.
+ */
+export const homeCard = ({
+  waiting,
+  approved,
+  sends,
+  ownerSends,
+  ownerFirstName,
+}: {
+  waiting: number;
+  approved: number | null;
+  sends: boolean;
+  ownerSends: boolean;
+  ownerFirstName: string;
+}): HomeCard => {
+  if (waiting > 0) {
+    return {
+      kind: 'review',
+      title: `${pluralise(waiting, 'draft')} ${waiting === 1 ? 'needs' : 'need'} your OK`,
+      line: `Nothing is sent until ${ownerSends ? `you approve it and ${ownerFirstName} sends it` : 'you approve and send it'}.`,
+    };
+  }
+  if (approved === null) return { kind: 'unknown', title: 'No drafts to review', line: 'Your apprentice drafts again on Sunday.' };
+  if (approved > 0) {
+    return {
+      kind: 'send',
+      title: `${pluralise(approved, 'reminder')} approved, not sent yet`,
+      line: sends ? sendByLine(approved) : waitingForOwnerLine(ownerFirstName, approved),
+    };
+  }
+  return { kind: 'done', title: 'All caught up', line: 'Your apprentice drafts again on Sunday.' };
 };
 
 const joinAnd = (parts: string[]): string => (parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`);

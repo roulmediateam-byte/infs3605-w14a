@@ -1,11 +1,12 @@
 // UI-03 Review (FR-14 to FR-19): one decision at a time. Review is a focused mode with its own progress and close
 // button; on a computer the queue sits beside the draft. The server confirms each decision before the screen moves.
+// Done means sent: the end of a review says "All caught up" only when no approved reminder is left unsent.
 import { useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { Ban, CircleCheck, CircleDashed, ScrollText, Send, X, type LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useMessages } from '../../app/messages.tsx';
 import { useOnline } from '../../app/online.ts';
-import { useAction, useBusinessRecord, useClients, useDraftRecord, useMembers, useQueue } from '../../app/queries.ts';
+import { useAction, useBusinessRecord, useClients, useDraftRecord, useDrafts, useLastImport, useMembers, useQueue } from '../../app/queries.ts';
 import { Link, navigate, useLocation } from '../../app/router.tsx';
 import { useBackend, useBusiness } from '../../app/session.tsx';
 import { screenEnabled } from '../../app/config.ts';
@@ -15,25 +16,30 @@ import { formatTime } from '../../lib/dates.ts';
 import {
   droppedNotes,
   initialReview,
+  largestFirst,
+  nextToSend,
   position,
   remaining,
   reviewReducer,
+  reviewSummary,
   sessionCounts,
-  summaryLine,
+  stillToSend,
+  unsentInSession,
   doneCount,
   type Outcome,
   type ReviewState,
 } from '../../lib/review-session.ts';
 import { KEYS, readItem } from '../../lib/storage.ts';
-import { CANCEL_REASON, CANCELLED_IN_PLACE, firstName, pluralise } from '../../lib/words.ts';
-import { Banner, Button, Chip, FormError, PageTitle, Skeleton } from '../../ui/controls.tsx';
+import { CANCEL_REASON, CANCELLED_IN_PLACE, firstName, NOT_SENT_YET, pluralise, sendByLine, sentLeftToSend, waitingForOwnerLine } from '../../lib/words.ts';
+import { Banner, Button, Chip, FormError, IconTile, PageTitle, Skeleton } from '../../ui/controls.tsx';
+import type { ChipTone } from '../../lib/words.ts';
 import { useInsetRef } from '../../ui/insets.ts';
 import { NoData } from '../../ui/QueryState.tsx';
 import { InvoiceSheet } from '../invoices/InvoiceSheet.tsx';
 import { DraftWords, LockedFacts, WhoAndHow, WhyThisDraft, draftHeading } from './DraftView.tsx';
 import { EditDraft } from './EditDraft.tsx';
 import { RejectSheet } from './RejectSheet.tsx';
-import { SendSheet } from './SendSheet.tsx';
+import { SendSheet, type SendRefusal } from './SendSheet.tsx';
 import { useReviewClock } from './useReviewClock.ts';
 
 const DEEP_LINK_NOTE: Record<string, string> = {
@@ -74,6 +80,29 @@ const outcomeLabel = (outcome: Outcome | undefined, sends: boolean, owner: strin
   }
 };
 
+/** The queue's chips in their tones: the apprentice's violet to review, blue approved, green sent, slate otherwise. */
+const outcomeTone = (outcome: Outcome | undefined): ChipTone => {
+  if (!outcome) return 'apprentice';
+  switch (outcome.kind) {
+    case 'approved':
+    case 'not-yet':
+      return 'ready';
+    case 'sent':
+      return 'paid';
+    case 'elsewhere':
+      return outcome.status === 'rejected' ? 'neutral' : outcome.status === 'sent' ? 'paid' : 'ready';
+    default:
+      return 'neutral';
+  }
+};
+
+/** Neutral outcomes keep a shape of their own: a no-entry sign for rejected, a broken circle for cancelled or gone. */
+const outcomeIcon = (outcome: Outcome | undefined): LucideIcon | undefined => {
+  if (outcome?.kind === 'rejected' || (outcome?.kind === 'elsewhere' && outcome.status === 'rejected')) return Ban;
+  if (outcome?.kind === 'cancelled' || outcome?.kind === 'dropped' || outcome?.kind === 'gone') return CircleDashed;
+  return undefined;
+};
+
 const isTyping = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
 
@@ -87,6 +116,8 @@ export const ReviewScreen = () => {
   const business = useBusinessRecord();
   const members = useMembers();
   const clients = useClients();
+  const approvedDrafts = useDrafts(['approved']);
+  const lastImport = useLastImport();
   const { run, busy } = useAction();
   const { show, announce } = useMessages();
   const online = useOnline();
@@ -103,11 +134,14 @@ export const ReviewScreen = () => {
   const [editError, setEditError] = useState<string | null>(null);
   const [rejectError, setRejectError] = useState<string | null>(null);
   const regionRef = useRef<HTMLElement>(null);
+  const endTitleRef = useRef<HTMLHeadingElement>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const backFromEdit = useRef(false);
   const logged = useRef(false);
   const firstDraft = useRef(true);
   const resolving = useRef(new Set<string>());
+  /** The reminder "Send the next one" offered last, so the one after it comes next if it is still unsent. */
+  const lastOffered = useRef<string | null>(null);
   const topInset = useInsetRef('top');
   const bottomInset = useInsetRef('bottom');
   // The session starts from the queue as it is now, never from a copy cached before Review opened: an import or a
@@ -172,15 +206,35 @@ export const ReviewScreen = () => {
   const approvedRecord = useDraftRecord(approvedHere && currentId ? currentId : null);
   const contact = item ? clients.data?.find((client) => client.id === item.client_id)?.contact_name : null;
 
-  // Move focus to the new draft when the person moves on (WCAG 2.4.3); not on first arrival.
+  // Every approved reminder still to send: this session's, then any approved before it or by someone else. Null
+  // while the database's list is still loading and this session has none of its own.
+  const approvedIds = approvedDrafts.data ? largestFirst(approvedDrafts.data).map((draft) => draft.id) : null;
+  const sessionUnsent = unsentInSession(state);
+  const toSend = approvedIds ? stillToSend(state, approvedIds) : sessionUnsent.length > 0 ? sessionUnsent : null;
+
+  // Moving on to another draft starts at the top of the page, with the client's name in view, and focus on the new
+  // draft (WCAG 2.4.3); the end of the review does the same with its title. Not on first arrival.
   useEffect(() => {
-    if (!currentId) return;
+    if (!currentId) {
+      if (!firstDraft.current && stateRef.current.total > 0) {
+        window.scrollTo({ top: 0 });
+        endTitleRef.current?.focus({ preventScroll: true });
+      }
+      return;
+    }
     if (firstDraft.current) {
       firstDraft.current = false;
       return;
     }
-    regionRef.current?.focus({ preventScroll: false });
+    window.scrollTo({ top: 0 });
+    regionRef.current?.focus({ preventScroll: true });
   }, [currentId]);
+
+  // After a send from the end of the review, focus stays put unless the button it came from has gone.
+  useEffect(() => {
+    if (sendDraftId !== null || !stateRef.current.started || stateRef.current.currentId !== null) return;
+    if (document.activeElement === null || document.activeElement === document.body) endTitleRef.current?.focus({ preventScroll: true });
+  }, [sendDraftId]);
 
   // Leaving the editor without saving puts focus back on Edit (WCAG 2.4.3).
   useEffect(() => {
@@ -231,6 +285,14 @@ export const ReviewScreen = () => {
     dispatch({ type: 'next' });
   };
 
+  /** "Send the next one" and "Send them": the next reminder still to send, not the one just put off. */
+  const sendNext = () => {
+    const id = nextToSend(toSend ?? [], lastOffered.current);
+    if (!id) return;
+    lastOffered.current = id;
+    setSendDraftId(id);
+  };
+
   const approve = async (edit?: { subject: string; body: string }) => {
     if (!item || !canDecide) return;
     const id = item.draft_id;
@@ -255,7 +317,8 @@ export const ReviewScreen = () => {
     if (value.status === 'approved' && value.changed) {
       dispatch({ type: 'outcome', id, outcome: { kind: 'approved', edited: value.edited } });
       if (sends) {
-        show({ text: 'Approved. Now send it from your email.' });
+        // The Send sheet that rises next says what to do, so the confirmation is spoken rather than laid over it.
+        announce('Approved. Now send it from your email.');
         setSendDraftId(id);
       } else {
         show({ text: `Approved. ${ownerFirst} sends it.` });
@@ -293,19 +356,31 @@ export const ReviewScreen = () => {
 
   const sendDone = (result: 'sent' | 'not-yet', id: string) => {
     setSendDraftId(null);
-    const previous = stateRef.current.outcomes[id];
+    const s = stateRef.current;
+    const previous = s.outcomes[id];
     const edited = previous && 'edited' in previous ? previous.edited : false;
+    // Reminders approved before this session are recorded too, so the end of the review counts them out once sent.
     dispatch({ type: 'outcome', id, outcome: { kind: result === 'sent' ? 'sent' : 'not-yet', edited } });
-    const n = left(id);
-    if (result === 'sent') show({ text: `Sent. ${n === 0 ? 'None' : n} left.` });
-    else show({ text: 'Not sent yet. It waits under Ready to send on Home: send it by Sun 9:00 pm.' });
-    if (id === stateRef.current.currentId) advance();
+    if (result === 'not-yet') show({ text: NOT_SENT_YET, tone: 'info' });
+    else if (id === s.currentId) {
+      const n = left(id);
+      show({ text: `Sent. ${n === 0 ? 'None' : n} left.` });
+    } else show({ text: sentLeftToSend((toSend ?? []).filter((other) => other !== id).length) });
+    if (id === s.currentId) advance();
   };
 
-  const closeSend = () => {
+  // Closed without an answer: the sheet has said "Not sent yet…". A refusal means the reminder was sent, held back
+  // or cancelled somewhere else, so its record is read again and the screen says what happened.
+  const closeSend = (refused?: SendRefusal) => {
     const id = sendDraftId;
     setSendDraftId(null);
-    if (id && id === stateRef.current.currentId) advance();
+    if (!id) return;
+    const s = stateRef.current;
+    if (refused) {
+      if (s.order.includes(id)) dispatch({ type: 'outcome', id, outcome: { kind: 'dropped', dropped: id === s.currentId ? 'on-screen' : 'away' } });
+      return;
+    }
+    if (id === s.currentId) advance();
   };
 
   const close = () => {
@@ -359,11 +434,12 @@ export const ReviewScreen = () => {
 
   const total = state.total;
   const pos = position(state);
-  const percent = total === 0 ? 100 : Math.round((doneCount(state) / total) * 100);
+  // Empty until the queue has loaded, so the bar never starts full and runs backwards.
+  const percent = state.started && total > 0 ? Math.round((doneCount(state) / total) * 100) : 0;
   const counts = sessionCounts(state);
 
   const topBar = (
-    <div className="review-top" ref={topInset}>
+    <header className="review-top" ref={topInset}>
       <div className="review-top-inner">
         <button type="button" className="icon-button" aria-label="Close review" onClick={close}>
           <X size={20} strokeWidth={1.5} aria-hidden="true" />
@@ -377,10 +453,33 @@ export const ReviewScreen = () => {
           <div className="progress-fill" style={{ width: `${percent}%` }} />
         </div>
       </div>
-    </div>
+    </header>
   );
 
   const notes = [deepLinkNote, ...droppedNotes(state, nameOf)].filter((note): note is string => Boolean(note));
+
+  const endButtons = (sendLabel: string | null) => (
+    <div className="stack-sm">
+      {sendLabel ? (
+        <>
+          <Button variant="primary" size="lg" block onClick={sendNext}>
+            {sendLabel}
+          </Button>
+          <Button variant="secondary" size="lg" block onClick={close}>
+            Back to Home
+          </Button>
+        </>
+      ) : (
+        <Button variant="primary" size="lg" block onClick={close}>
+          Back to Home
+        </Button>
+      )}
+      <Link className="btn btn-quiet" to="log">
+        <ScrollText size={16} strokeWidth={2} aria-hidden="true" />
+        See what happened
+      </Link>
+    </div>
+  );
 
   let body;
   let actions = null;
@@ -402,21 +501,45 @@ export const ReviewScreen = () => {
         }
       />
     );
+  } else if (!item && total === 0) {
+    // Nothing waiting for review. It is all caught up only if no approved reminder is waiting to send either.
+    const waitingToSend = toSend?.length ?? 0;
+    body =
+      toSend === null && approvedDrafts.isLoading ? (
+        <div className="stack-sm" role="status" aria-label="Checking for reminders still to send">
+          <Skeleton width="60%" height={28} />
+          <Skeleton height={48} />
+        </div>
+      ) : (
+        <div className="summary-card" role="status">
+          {waitingToSend > 0 ? <IconTile icon={Send} tone="ready" size="lg" /> : <IconTile icon={CircleCheck} tone="success" size="lg" />}
+          <h2 className="t-title" ref={endTitleRef} tabIndex={-1}>
+            {waitingToSend > 0
+              ? sends
+                ? `${pluralise(waitingToSend, 'reminder')} still to send`
+                : `${pluralise(waitingToSend, 'reminder')} approved, not sent yet`
+              : toSend === null
+                ? 'Nothing to review'
+                : 'All caught up'}
+          </h2>
+          <p>
+            Nothing is waiting for review.{' '}
+            {waitingToSend > 0 ? (sends ? sendByLine(waitingToSend) : waitingForOwnerLine(ownerFirst, waitingToSend)) : 'Your apprentice drafts again on Sunday.'}
+          </p>
+          {endButtons(waitingToSend > 0 && sends ? 'Send them' : null)}
+        </div>
+      );
   } else if (!item) {
-    const line = total === 0 ? 'All caught up' : summaryLine(counts, sends, ownerFirst);
+    const summary = reviewSummary(counts, sends, ownerFirst, toSend === null ? null : toSend.length);
     body = (
       <div className="summary-card" role="status">
-        <h2 className="t-title">{total === 0 ? 'All caught up' : line}</h2>
-        {total === 0 ? <p>Nothing is waiting for review. Your apprentice drafts again on Sunday.</p> : null}
-        {sends && counts.notYet > 0 ? <p className="t-secondary">Reminders waiting to send are under Ready to send on Home. Send them by Sun 9:00 pm.</p> : null}
-        <div className="stack-sm">
-          <Button variant="primary" size="lg" block onClick={close}>
-            Back to Home
-          </Button>
-          <Link className="btn btn-quiet" to="log">
-            See what happened
-          </Link>
-        </div>
+        {sends && toSend !== null && toSend.length > 0 ? <IconTile icon={Send} tone="ready" size="lg" /> : <IconTile icon={CircleCheck} tone="success" size="lg" />}
+        <h2 className="t-title" ref={endTitleRef} tabIndex={-1}>
+          {summary.title}
+        </h2>
+        {summary.counts ? <p>{summary.counts}</p> : null}
+        {summary.line ? <p className="t-secondary">{summary.line}</p> : null}
+        {endButtons(sends && toSend !== null && toSend.length > 0 ? 'Send the next one' : null)}
       </div>
     );
   } else {
@@ -437,7 +560,11 @@ export const ReviewScreen = () => {
     body = (
       <section ref={regionRef} tabIndex={-1} aria-label={draftHeading(item)} className="stack slide-in" key={item.draft_id} style={{ outline: 'none' }}>
         <WhoAndHow item={item} contactName={contact} />
-        <LockedFacts item={item} onOpenInvoice={screenEnabled('invoices') ? () => setInvoiceOpen(item.invoice_id) : undefined} />
+        <LockedFacts
+          item={item}
+          onOpenInvoice={screenEnabled('invoices') ? () => setInvoiceOpen(item.invoice_id) : undefined}
+          importedAt={lastImport.data?.uploaded_at ?? null}
+        />
         {panel ? (
           <div className="note" role="status">
             <p className="list-title">{panel}</p>
@@ -526,7 +653,9 @@ export const ReviewScreen = () => {
                         Invoice {entry.invoice_number} · {formatAud(entry.amount_due_cents)}
                       </span>
                     </span>
-                    <Chip>{outcomeLabel(result, sends, ownerFirst, nameOf)}</Chip>
+                    <Chip tone={outcomeTone(result)} icon={outcomeIcon(result)}>
+                      {outcomeLabel(result, sends, ownerFirst, nameOf)}
+                    </Chip>
                   </button>
                 </li>
               );
@@ -544,9 +673,9 @@ export const ReviewScreen = () => {
             {body}
           </main>
           {actions ? (
-            <div className="action-bar" ref={bottomInset}>
+            <footer className="action-bar" ref={bottomInset}>
               <div className="action-bar-inner">{actions}</div>
-            </div>
+            </footer>
           ) : null}
         </div>
       </div>

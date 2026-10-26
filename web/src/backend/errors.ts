@@ -27,7 +27,7 @@ export const MESSAGES = {
   signedOut: 'Your session ended. Sign in again to carry on.',
   uninvited: 'Ask the owner to invite you.',
   rateLimit: 'Wait a minute, then ask again.',
-  badCode: "That code didn't work. It may have expired. Send a new one.",
+  badCode: "That code didn't work. Check the 6 digits, or ask for a new code.",
   badLink: "That sign-in link didn't work. It may have expired or been used. Send a new code.",
   notAllowedValue: "That value isn't allowed. Check the field, then try again.",
 } as const;

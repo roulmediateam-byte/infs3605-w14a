@@ -1,4 +1,4 @@
-# Get-Paid Apprentice web app
+# Payprentice web app
 
 The web app is where an owner or checker reviews the apprentice's drafts, sends them from their own email app and keeps invoices up to date. It is a React and TypeScript single-page app built with Vite, installable on a phone. It talks only to Supabase, with the publishable key, so the browser holds no secret. Every change goes through a database function that checks the person's role (ADR 0003), so the server enforces approval whatever the browser does.
 
@@ -84,7 +84,7 @@ What differs from the real app:
 - The sign-in code appears on screen, with a "Use it" button, because no email is sent.
 - Send shows a preview step instead of opening the email app, and downloads are switched off.
 - More has "Run it now", which runs Sunday's drafting run with the fallback templates (there is no AI).
-- Everything lives in the browser tab: nothing is sent anywhere, and a reload starts again from the seed.
+- Everything lives in the browser: nothing is sent anywhere. The demo's data is kept in this browser's storage (IndexedDB), so a reload carries on where you were; More, "Reset demo data", starts again from the seed. Where the browser can't keep it, or the demo is open in another tab, that tab runs in memory and a reload starts again.
 
 The engine files sit next to the page in `pglite/`. The file-system bundle ships as gzip-compressed base64 in `pglite-data.json`, because artifact hosting serves web file types only. In testing it reached sign-in in about 4 seconds.
 
@@ -95,7 +95,7 @@ The engine files sit next to the page in `pglite/`. The file-system bundle ships
 | `src/backend/` | The `Backend` interface (`types.ts`), the Supabase adapter, the preview adapter, error messages by database error code (`errors.ts`) and the generated `database.types.ts` |
 | `src/app/` | Router (addresses always say where you are), session and roles, data fetching with TanStack Query, messages with Undo, the shell and its banners |
 | `src/screens/` | One file or folder per screen |
-| `src/ui/` | Buttons, fields, chips, banners and sheets (native `<dialog>`), styled with the UI brief's tokens in `src/styles.css` |
+| `src/ui/` | Buttons, fields, chips, banners, icon tiles and sheets (native `<dialog>`), styled with the tokens in `src/styles.css`; their sources and licences are in `THIRD_PARTY_NOTICES.md` at the repository root |
 | `src/lib/` | Pure logic with unit tests: money, Sydney dates, import rows, draft checks and the email link, activity log sentences, CSV export |
 | `src/workers/` | Reads CSV files off the main thread |
 | `build/plugins.ts` | The security policy, service worker, 404 page and the preview's engine files |
@@ -108,7 +108,8 @@ Rules the code keeps:
 - Screens never change money or dates on their own: they call a function, then refetch.
 - No change is queued while offline: the app says "You're offline. Your place is saved." and the change is not made. A screen that hasn't loaded yet says "You're offline. This will load when you're back online." rather than looking empty.
 - Signing out forgets the session and the person's details on this device, even offline.
-- No third-party scripts, fonts or trackers, and no personal data in the console.
+- No third-party scripts or trackers, nothing loaded from another site, and no personal data in the console. The one font, Inter, ships with the app (`src/assets/fonts/`; licence in `public/fonts/OFL.txt`).
+- Every colour has one job: blue for actions, links, focus and navigation; violet for the apprentice's drafts; ink, with a tick, for a selection; and six status tones, always beside a word and an icon.
 - Words come from the App Flow and the UI brief, in Australian English. Test data is always labelled "Test data".
 
 AI use: Team W14A-5 used [AI tools: completed at final assembly] to help draft and structure this document. Every claim, figure and quote was checked against its source by a team member, and the team takes responsibility for the content.

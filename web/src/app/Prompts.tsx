@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { CodeSignIn } from '../screens/SignIn.tsx';
 import { openSendSheets, SendSheet } from '../screens/review/SendSheet.tsx';
 import { pendingSends, setPendingSend } from '../lib/storage.ts';
+import { NOT_SENT_YET } from '../lib/words.ts';
 import { Button } from '../ui/controls.tsx';
 import { Sheet } from '../ui/Sheet.tsx';
 import { useMessages } from './messages.tsx';
@@ -66,7 +67,7 @@ export const PendingSendPrompt = () => {
       onDone={(outcome) => {
         setDraftId(null);
         setChecked((n) => n + 1);
-        show({ text: outcome === 'sent' ? 'Sent.' : 'Not sent yet. It waits under Ready to send: send it by Sun 9:00 pm.' });
+        show(outcome === 'sent' ? { text: 'Sent.' } : { text: NOT_SENT_YET, tone: 'info' });
       }}
     />
   );

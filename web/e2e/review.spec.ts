@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import type { Page } from '@playwright/test';
 import { DEMO_CSV, expect, isPhone, OWNER, signIn, test } from './support.ts';
 
 test.beforeEach(async ({ page }) => {
@@ -10,17 +11,41 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByText('1 of 5', { exact: true })).toBeVisible();
 });
 
+/** Rejects the draft on screen, as "Wrong tone". */
+const rejectOne = async (page: Page) => {
+  await page.getByRole('button', { name: 'Reject', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name: /^Reject the draft/ });
+  await sheet.getByRole('radio', { name: 'Wrong tone' }).check();
+  await sheet.getByRole('button', { name: 'Reject draft' }).click();
+  await expect(sheet).toBeHidden();
+};
+
+/** Approves the draft on screen, opens the email and answers "Not yet": approved, and not sent. */
+const approveNotYet = async (page: Page) => {
+  await page.getByRole('button', { name: 'Approve', exact: true }).click();
+  await page.getByRole('link', { name: 'Send from my email' }).click();
+  await page.getByRole('dialog', { name: 'Did it send?' }).getByRole('button', { name: 'Not yet', exact: true }).click();
+};
+
 test('approve, then send from my email, and the count moves on', async ({ page }) => {
   const draft = page.getByRole('region', { name: 'Invoice 1066, $18,700.00, 8 days overdue' });
   await expect(draft.getByText('Locked facts, from your records')).toBeVisible();
-  await expect(draft.getByText('Draft', { exact: true })).toBeVisible();
+  await expect(draft.getByText('Draft · not sent yet', { exact: true })).toBeVisible();
+  // The facts in the order the owner decides by, and when they were last read from the records.
+  await expect(draft.getByRole('region', { name: 'Locked facts' })).toContainText(/\$18,700\.00\s*8 days overdue\s*Invoice 1066\s*Due /);
+  await expect(draft.getByText(/^From your latest import, [A-Z][a-z]{2} \d{1,2} [A-Z][a-z]{2}, \d{1,2}:\d{2} [ap]m$/)).toBeVisible();
   await expect(page.getByText('Approving lets you send this to accounts@bayside-builders.example from your own email.')).toBeVisible();
 
   await page.getByRole('button', { name: 'Approve', exact: true }).click();
   const sheet = page.getByRole('dialog', { name: 'Send this reminder' });
   await expect(sheet).toBeVisible();
-  await expect(page.getByText('Approved. Now send it from your email.')).toBeVisible();
-  await expect(sheet.getByText('This opens your email app. Check it sends from your business address.')).toBeVisible();
+  // The approval is announced, not laid over the sheet, whose title takes focus.
+  await expect(sheet.getByRole('heading', { name: 'Send this reminder' })).toBeFocused();
+  await expect(page.locator('.toast')).toHaveCount(0);
+  await expect(sheet.getByText('Send it from', { exact: true })).toBeVisible();
+  await expect(sheet.getByText('accounts@harbourline.example', { exact: true })).toBeVisible();
+  await expect(sheet.getByText('Your email app chooses the From address. Check it before you send.')).toBeVisible();
+  await expect(sheet.getByText('Replies go to')).toHaveCount(0);
   await expect(sheet.getByText('Approved text')).toBeVisible();
 
   // The pre-filled email: encodeURIComponent, so spaces are %20 and line breaks %0D%0A (TRD, Sending reminders).
@@ -32,6 +57,9 @@ test('approve, then send from my email, and the count moves on', async ({ page }
 
   const question = page.getByRole('dialog', { name: 'Did it send?' });
   await expect(question).toBeVisible();
+  // The new step starts at its top, with focus on its question.
+  await expect(question.getByRole('heading', { name: 'Did it send?' })).toBeFocused();
+  expect(await question.locator('.sheet-body').evaluate((body) => body.scrollTop)).toBe(0);
   await question.getByRole('button', { name: 'Sent', exact: true }).click();
   await expect(page.getByText('Sent. 4 left.')).toBeVisible();
   await expect(page.getByText('2 of 5', { exact: true })).toBeVisible();
@@ -42,24 +70,41 @@ test('approve, then send from my email, and the count moves on', async ({ page }
   await expect(page.getByText('Alex Test approved the reminder for invoice 1066')).toBeVisible();
 });
 
-test('an edit that changes the amount is refused; a reworded one is saved and approved', async ({ page }) => {
-  await page.getByRole('button', { name: 'Approve', exact: true }).click();
-  await page.getByRole('link', { name: 'Send from my email' }).click();
-  await page.getByRole('button', { name: 'Not yet', exact: true }).click();
+test('an edit that changes the amount is refused, naming the wrong amount; a reworded one is saved and approved', async ({ page }) => {
+  await approveNotYet(page);
+  await expect(page.getByText('Not sent yet. It waits under Ready to send on Home.')).toBeVisible();
   await expect(page.getByText('2 of 5', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Edit draft' })).toBeVisible();
+  await expect(page.getByRole('main')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Locked facts' })).toContainText('$8,450.00');
   const message = page.getByLabel('Message');
   const original = await message.inputValue();
   await message.fill(original.replace('$8,450.00', '$8,000.00'));
   await page.getByRole('button', { name: 'Save and approve' }).click();
-  await expect(page.getByText('Keep $8,450.00 and invoice 1051 as they are.')).toBeVisible();
+  const refusal = 'The message says $8,000.00. Amounts come from your records, so keep $8,450.00.';
+  await expect(page.getByText(refusal)).toBeVisible();
+  const putBack = page.getByRole('button', { name: 'Put $8,450.00 back' });
+  await expect(putBack).toBeFocused();
+  await expect(message).toHaveAttribute('aria-invalid', 'true');
+
+  // "Show changes" marks the changed amount as a locked fact, in the danger style, and the refusal stays in view.
+  await page.getByRole('button', { name: 'Show changes' }).click();
+  await expect(page.locator('.diff-locked', { hasText: '$8,000.00' })).toBeVisible();
+  await expect(page.locator('ins.diff-locked')).toContainText('$8,000.00');
+  await expect(page.getByText(refusal)).toBeVisible();
+  await page.getByRole('button', { name: 'Back to editing' }).click();
+
+  await putBack.click();
+  await expect(page.getByText('$8,450.00 is back in the message.')).toBeVisible();
+  await expect(page.getByText(refusal)).toHaveCount(0);
+  expect(await message.inputValue()).toBe(original);
 
   await message.fill(original.replace('Hi Priya,', 'Hi Priya, hope the week is going well.'));
   await page.getByRole('button', { name: 'Show changes' }).click();
   await expect(page.getByText('hope the week is going well.')).toBeVisible();
+  await expect(page.locator('.diff-locked')).toHaveCount(0);
   await page.getByRole('button', { name: 'Back to editing' }).click();
   await page.getByRole('button', { name: 'Save and approve' }).click();
   const sheet = page.getByRole('dialog', { name: 'Send this reminder' });
@@ -68,7 +113,9 @@ test('an edit that changes the amount is refused; a reworded one is saved and ap
   const approved = page.locator('main .draft-surface.approved');
   await expect(approved).toContainText('Approved text');
   await expect(approved).toContainText('Hi Priya, hope the week is going well.');
+  // Closing the sheet without an answer says where the reminder waits.
   await sheet.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByText('Not sent yet. It waits under Ready to send on Home.')).toBeVisible();
   await expect(page.getByText('3 of 5', { exact: true })).toBeVisible();
 
   await page.goto('log?invoice=1051');
@@ -154,22 +201,101 @@ test('a reload while "Did it send?" is open asks again', async ({ page }) => {
   await question.getByRole('button', { name: 'Not yet', exact: true }).click();
   await page.goto('');
   await expect(page.getByRole('heading', { name: 'Ready to send (1)' })).toBeVisible();
-  await expect(page.getByText('Invoice 1066 · Send by Sun 9:00 pm')).toBeVisible();
+  // The row names the invoice, with its deadline as a chip in the ready tone.
+  const ready = page.locator('section', { has: page.getByRole('heading', { name: 'Ready to send (1)' }) });
+  await expect(ready.getByText('Invoice 1066', { exact: true })).toBeVisible();
+  await expect(ready.locator('.chip-ready', { hasText: 'Send by Sun 9:00 pm' })).toBeVisible();
 });
 
 test('a full review ends with the summary and the review is logged', async ({ page }) => {
-  for (let i = 0; i < 5; i += 1) {
-    await page.getByRole('button', { name: 'Reject', exact: true }).click();
-    const sheet = page.getByRole('dialog', { name: /^Reject the draft/ });
-    await sheet.getByRole('radio', { name: 'Wrong tone' }).check();
-    await sheet.getByRole('button', { name: 'Reject draft' }).click();
-    await expect(sheet).toBeHidden();
-  }
+  for (let i = 0; i < 5; i += 1) await rejectOne(page);
   await expect(page.getByRole('heading', { name: 'All caught up: 5 rejected' })).toBeVisible();
   await page.getByRole('button', { name: 'Back to Home' }).click();
   await expect(page.getByRole('heading', { name: 'All caught up' })).toBeVisible();
   await page.goto('log');
   await expect(page.getByText(/^Alex Test reviewed 5 drafts in \d+ min: 5 rejected$/)).toBeVisible();
+});
+
+test('the next draft opens at the top, with the client in view and focus on the draft', async ({ page }) => {
+  // Read to the end of the first draft, as on a phone, then decide.
+  await page.getByText('Why this draft?').click();
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight }));
+  await rejectOne(page);
+  await expect(page.getByText('2 of 5', { exact: true })).toBeVisible();
+  const next = page.getByRole('region', { name: /^Invoice 1051,/ });
+  await expect(next).toBeFocused();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  // The client's name sits below the top bar, not under it.
+  const bar = await page.locator('.review-top').boundingBox();
+  const name = await next.getByText('Northshore Homes (Test data)').boundingBox();
+  expect(name && bar && name.y >= bar.y + bar.height).toBe(true);
+  // The progress bar has moved on from empty, and never started full.
+  await expect(page.locator('.progress-fill')).toHaveAttribute('style', /width: 20%/);
+});
+
+test('when reminders are approved but not sent, the summary says so and sends the next one', async ({ page }) => {
+  await approveNotYet(page);
+  for (let i = 0; i < 4; i += 1) await rejectOne(page);
+  const title = page.getByRole('heading', { name: '1 reminder still to send' });
+  await expect(title).toBeVisible();
+  await expect(title).toBeFocused();
+  await expect(page.getByText('4 rejected, 1 waiting to send', { exact: true })).toBeVisible();
+  await expect(page.getByText("Send by Sun 9:00 pm, when Sunday's run replaces it. It waits under Ready to send on Home.")).toBeVisible();
+  await expect(page.getByText(/All caught up/)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Back to Home' })).toHaveClass(/btn-secondary/);
+
+  // Closing the Send sheet with Escape leaves it unsent, and says where it waits.
+  await page.getByRole('button', { name: 'Send the next one' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Send this reminder' });
+  await expect(sheet.getByText('Quick reminder: invoice 1066')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  await expect(page.getByText('Not sent yet. It waits under Ready to send on Home.')).toBeVisible();
+  await expect(title).toBeVisible();
+
+  await page.getByRole('button', { name: 'Send the next one' }).click();
+  await page.getByRole('link', { name: 'Send from my email' }).click();
+  await page.getByRole('dialog', { name: 'Did it send?' }).getByRole('button', { name: 'Sent', exact: true }).click();
+  await expect(page.getByText('Sent. None left to send.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'All caught up: 1 sent, 4 rejected' })).toBeVisible();
+  await page.goto('log?invoice=1066');
+  await expect(page.getByText('Alex Test sent the reminder for invoice 1066 from their email')).toBeVisible();
+});
+
+test('after "Not yet", Home leads with the reminder still to send, and Review says so too', async ({ page }) => {
+  await approveNotYet(page);
+  for (let i = 0; i < 4; i += 1) await rejectOne(page);
+  await page.getByRole('button', { name: 'Back to Home' }).click();
+
+  const card = page.locator('.action-card');
+  await expect(card.getByRole('heading', { name: '1 reminder approved, not sent yet' })).toBeVisible();
+  await expect(card.getByText("Send by Sun 9:00 pm, when Sunday's run replaces it.")).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'All caught up' })).toHaveCount(0);
+  const ready = page.locator('section', { has: page.getByRole('heading', { name: 'Ready to send (1)' }) });
+  const rowSend = ready.getByRole('button', { name: 'Send the reminder for invoice 1066' });
+  await expect(rowSend).toBeVisible();
+  expect((await rowSend.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+  // The empty Review doesn't call it done either.
+  await page.getByRole('link', { name: 'Review', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '1 reminder still to send' })).toBeVisible();
+  await expect(page.getByText("Nothing is waiting for review. Send by Sun 9:00 pm, when Sunday's run replaces it.")).toBeVisible();
+  await page.getByRole('button', { name: 'Back to Home' }).click();
+
+  // Closing the Send sheet by tapping outside it leaves the reminder where it was.
+  await card.getByRole('button', { name: 'Send the next one' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Send this reminder' });
+  await expect(sheet.getByText('Quick reminder: invoice 1066')).toBeVisible();
+  await page.mouse.click(5, 5);
+  await expect(sheet).toBeHidden();
+  await expect(page.getByText('Not sent yet. It waits under Ready to send on Home.')).toBeVisible();
+  await expect(card.getByRole('heading', { name: '1 reminder approved, not sent yet' })).toBeVisible();
+
+  await rowSend.click();
+  await page.getByRole('link', { name: 'Send from my email' }).click();
+  await page.getByRole('dialog', { name: 'Did it send?' }).getByRole('button', { name: 'Sent', exact: true }).click();
+  await expect(page.getByText('Sent. None left to send.')).toBeVisible();
+  await expect(card.getByRole('heading', { name: 'All caught up' })).toBeVisible();
 });
 
 test('a draft whose invoice changes during the review gives way, with the reason', async ({ page }) => {

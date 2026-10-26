@@ -1,4 +1,4 @@
--- Get-Paid Apprentice · migration 6 of 7 · the app's API
+-- Payprentice · migration 6 of 7 · the app's API
 -- Every function the web app calls. Each one checks the caller's role first, does its work in one transaction
 -- and writes the activity log in the same transaction (FR-21). Roles follow Design Requirements v0.1 section 4:
 --   owner: everything for their business

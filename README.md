@@ -1,6 +1,8 @@
-# Get-Paid Apprentice
+# Payprentice
 
-Get-Paid Apprentice drafts payment reminders in the owner's voice and a Monday briefing for small construction businesses, and nothing reaches a client until the owner or a named checker approves it. This repository holds the database, the scheduled jobs, the AI prompt and the plan for the proof of concept (PoC) built by Team W14A-5 for INFS3605 at UNSW, Term 3 2026.
+Payprentice drafts payment reminders in the owner's voice and a Monday briefing for small construction businesses, and nothing reaches a client until the owner or a named checker approves it. This repository holds the database, the scheduled jobs, the AI prompt and the plan for the proof of concept (PoC) built by Team W14A-5 for INFS3605 at UNSW, Term 3 2026.
+
+**Name:** the product was called Get-Paid Apprentice until Mon 26 Oct 2026. Payprentice is a working name until the team's trade mark search (IP Australia, classes 9 and 42) is done. The repository, packages, database and storage keys keep their `getpaid` names, so nothing that is already set up breaks.
 
 **New here?** Start with [docs/first-day.md](docs/first-day.md): see the app in 5 minutes, then make your first change.
 
@@ -109,4 +111,4 @@ The sign-in code is at http://127.0.0.1:54321/__local/codes?email=owner@example.
 
 This is coursework for INFS3605 at UNSW. All rights reserved by Team W14A-5.
 
-AI use: Team W14A-5 used [AI tools: completed at final assembly] to help draft and structure this document. Every claim, figure and quote was checked against its source by a team member, and the team takes responsibility for the content.
+AI use: Team W14A-5 used [AI tools: completed at final assembly] to help draft and structure this document and to write and test the code in this repository. Every claim, figure and quote was checked against its source by a team member, and the team takes responsibility for the content.

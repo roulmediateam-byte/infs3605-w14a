@@ -2,7 +2,11 @@
 // colour second (WCAG 1.4.1); the chip tone only picks the colour pair from the UI brief.
 import { daysBetween, formatDate, overdueText, sydneyDate } from './dates.ts';
 
-export type ChipTone = 'overdue' | 'due-soon' | 'paid' | 'neutral';
+/**
+ * The chip's colour pair and icon (src/ui/controls.tsx). Invoice states use overdue, due-soon, paid and neutral; ready
+ * is approved and not sent yet, info explains, apprentice marks the apprentice's drafts, and selected is a current choice.
+ */
+export type ChipTone = 'overdue' | 'due-soon' | 'paid' | 'neutral' | 'ready' | 'info' | 'apprentice' | 'selected';
 
 export type Tone = 'gentle' | 'standard' | 'firm';
 export type CancelReason = 'invoice_paid' | 'invoice_closed' | 'amount_changed' | 'due_date_changed' | 'client_paused' | 'email_missing' | 'superseded';
@@ -74,30 +78,70 @@ export const invoiceChip = (
 /** A days-overdue chip for lists that already know the count (Home's biggest overdue). */
 export const overdueChip = (days: number): Chip => ({ label: `Overdue · ${days} ${days === 1 ? 'day' : 'days'}`, tone: 'overdue' });
 
+/** "NH" for "Northshore Homes (Test data)": a client's avatar, up to two letters, leaving out anything in brackets. */
+export const initials = (name: string): string => {
+  const words = name
+    .replace(/\([^)]*\)/g, ' ')
+    .split(/\s+/)
+    .filter((word) => /[\p{L}\p{N}]/u.test(word));
+  const letters = words.slice(0, 2).map((word) => (word.match(/[\p{L}\p{N}]/u)?.[0] ?? '').toUpperCase());
+  return letters.join('') || '?';
+};
+
 /** "Steve" from "Steve Smith": the owner's first name, used in "Approved. Steve sends it." */
 export const firstName = (name: string): string => name.trim().split(/\s+/)[0] ?? name;
 
-/** "Drafted because invoice 1043 is 14 days overdue, ..." (App Flow, Labels and explanations; R-07). */
-export const whyThisDraft = (draft: {
-  invoice_number: string;
-  days_overdue: number;
-  reminders_sent_before: number;
-  tone: Tone;
-  source: 'ai' | 'template';
-  cooldownDays: number;
-}): string[] => {
+/**
+ * "Drafted because invoice 1043 is 14 days overdue, ..." (App Flow, Labels and explanations; R-07). The in-browser
+ * preview has no AI at all, so there it says so instead of reporting a failure that never happened.
+ */
+export const whyThisDraft = (
+  draft: {
+    invoice_number: string;
+    days_overdue: number;
+    reminders_sent_before: number;
+    tone: Tone;
+    source: 'ai' | 'template';
+    cooldownDays: number;
+  },
+  options: { preview?: boolean } = {},
+): string[] => {
   const lastReminder =
     draft.reminders_sent_before === 0 ? 'no reminder has been sent for it yet' : `no reminder went in the last ${draft.cooldownDays} days`;
   const lines = [
     `Drafted because invoice ${draft.invoice_number} is ${overdueText(draft.days_overdue)}, the client has an email and ${lastReminder}. Tone: ${TONE_LABEL[draft.tone]}, set for this client.`,
   ];
   if (draft.source === 'template') {
-    lines.push(`Your apprentice couldn't write this one, so it used the ${TONE_LABEL[draft.tone]} template.`);
+    lines.push(
+      options.preview
+        ? `This preview has no AI, so your apprentice used the ${TONE_LABEL[draft.tone]} template.`
+        : `Your apprentice couldn't write this one, so it used the ${TONE_LABEL[draft.tone]} template.`,
+    );
   }
   return lines;
 };
 
 export const pluralise = (count: number, one: string, many: string = `${one}s`): string => `${count} ${count === 1 ? one : many}`;
+
+// ---------------------------------------------------------------------------------------------
+// Sending: done means sent. An approved reminder is not sent until someone sends it from their own email and says
+// so, and Sunday's run replaces any that are still unsent (BR-10), so every screen says the same thing the same way.
+// ---------------------------------------------------------------------------------------------
+
+/** After "Not yet", or after the Send sheet is closed without an answer. */
+export const NOT_SENT_YET = 'Not sent yet. It waits under Ready to send on Home.';
+
+/** "Send by Sun 9:00 pm, when Sunday's run replaces them." */
+export const sendByLine = (count: number): string => `Send by Sun 9:00 pm, when Sunday's run replaces ${count === 1 ? 'it' : 'them'}.`;
+
+/** For a checker who may not send (D3): "Waiting for Alex to send them by Sun 9:00 pm, when Sunday's run replaces them." */
+export const waitingForOwnerLine = (ownerFirstName: string, count: number): string => {
+  const them = count === 1 ? 'it' : 'them';
+  return `Waiting for ${ownerFirstName} to send ${them} by Sun 9:00 pm, when Sunday's run replaces ${them}.`;
+};
+
+/** After a send from Home, the summary or an empty Review: "Sent. 1 left to send." */
+export const sentLeftToSend = (left: number): string => `Sent. ${left === 0 ? 'None' : left} left to send.`;
 
 /** "3 sent, 1 rejected and 1 waiting to send" style lists, leaving out zero counts. */
 export const listCounts = (items: [number, string][]): string => {

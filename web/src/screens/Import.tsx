@@ -1,8 +1,11 @@
 // UI-08 Import (FR-04 to FR-06): bring in this week's export without surprises. Choose, Match (first time only),
 // Check, Done. Every row and the total are checked before anything is saved, and a file that would quietly close most
 // invoices is stopped. The browser and the server read values with the same rules (lib/import-rows.ts).
-import { Upload } from 'lucide-react';
-import { useMemo, useRef, useState, type DragEvent } from 'react';
+// The Check step names every invoice that will close and every reminder that will be cancelled, so "what will change"
+// is always the whole truth.
+import { Check, CircleAlert, CircleCheck, CircleDashed, FileUp, MoveRight, TriangleAlert, Upload } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
+import './Import.css';
 import { useMessages } from '../app/messages.tsx';
 import { useOnline } from '../app/online.ts';
 import { useAction, useBusinessRecord, useClients, useDrafts, useInvoices } from '../app/queries.ts';
@@ -13,6 +16,7 @@ import type { ImportResult } from '../backend/types.ts';
 import { formatDate } from '../lib/dates.ts';
 import {
   autoMap,
+  CANCELLED_BECAUSE,
   checkRows,
   clashingFields,
   detectFormat,
@@ -21,6 +25,7 @@ import {
   MAX_ROWS,
   missingFields,
   planImport,
+  planWords,
   REQUIRED_FIELDS,
   toImportRows,
   usableMapping,
@@ -31,7 +36,7 @@ import {
 import { formatAud, toJsonInteger } from '../lib/money.ts';
 import { listCounts, pluralise } from '../lib/words.ts';
 import type { CsvResponse } from '../workers/csv.worker.ts';
-import { Banner, Button, ErrorPanel, FormError, LoadingBlock, PageTitle, SelectField } from '../ui/controls.tsx';
+import { Banner, Button, ErrorPanel, FormError, IconTile, LoadingBlock, PageTitle, SelectField } from '../ui/controls.tsx';
 import { Sheet } from '../ui/Sheet.tsx';
 import { isPausedOffline } from '../ui/QueryState.tsx';
 
@@ -44,6 +49,9 @@ const STEPS: { id: Step; label: string }[] = [
 ];
 
 const NOT_CSV = "This file isn't a CSV. In Xero, export your invoices as CSV and try again.";
+
+/** How many closing invoices and cancelled reminders are named before "And 3 more." */
+const LIST_LIMIT = 10;
 
 const readCsv = (file: File): Promise<string[][]> =>
   new Promise((resolve, reject) => {
@@ -72,6 +80,60 @@ export const toParsedFile = (fileName: string, raw: string[][]): ParsedFile | nu
   return { fileName, headers, rows };
 };
 
+/**
+ * The preview table scrolls inside its own box (UI brief, UI-08). When the table is wider than the box, as on every
+ * phone, a hint says so and the right edge fades until the last column is in view.
+ */
+const SidewaysScroll = ({ labelledBy, children }: { labelledBy: string; children: ReactNode }) => {
+  const [edge, setEdge] = useState({ wide: false, more: false, barRight: 0, barBottom: 0 });
+  const watch = useCallback((box: HTMLDivElement | null) => {
+    if (!box) return;
+    const measure = () => {
+      const hidden = box.scrollWidth - box.clientWidth;
+      const next = {
+        wide: hidden > 1,
+        more: hidden - box.scrollLeft > 1,
+        // Scrollbars that take room (not the overlay kind on phones) stay clear of the fade.
+        barRight: Math.max(0, box.offsetWidth - box.clientWidth - box.clientLeft * 2),
+        barBottom: Math.max(0, box.offsetHeight - box.clientHeight - box.clientTop * 2),
+      };
+      setEdge((current) =>
+        current.wide === next.wide && current.more === next.more && current.barRight === next.barRight && current.barBottom === next.barBottom
+          ? current
+          : next,
+      );
+    };
+    measure();
+    box.addEventListener('scroll', measure, { passive: true });
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    observer?.observe(box);
+    if (box.firstElementChild) observer?.observe(box.firstElementChild);
+    return () => {
+      box.removeEventListener('scroll', measure);
+      observer?.disconnect();
+    };
+  }, []);
+  return (
+    <>
+      {edge.wide ? (
+        <p className="t-caption import-scroll-hint">
+          <MoveRight size={16} strokeWidth={1.5} aria-hidden="true" />
+          Scroll sideways for more.
+        </p>
+      ) : null}
+      <div
+        className="import-scroll"
+        data-more={edge.more || undefined}
+        style={{ '--bar-right': `${edge.barRight}px`, '--bar-bottom': `${edge.barBottom}px` } as CSSProperties}
+      >
+        <div ref={watch} className="table-wrap" tabIndex={0} role="region" aria-labelledby={labelledBy}>
+          {children}
+        </div>
+      </div>
+    </>
+  );
+};
+
 export const ImportScreen = () => {
   const { businessId, role } = useBusiness();
   const backend = useBackend();
@@ -87,14 +149,22 @@ export const ImportScreen = () => {
   const [mapping, setMapping] = useState<ColumnMapping>({});
   const [autoMatched, setAutoMatched] = useState(false);
   const [chooseError, setChooseError] = useState<string | null>(null);
+  // Counts file errors, so the same message chosen twice is shown, scrolled to and announced again.
+  const [errorCount, setErrorCount] = useState(0);
   const [reading, setReading] = useState(false);
   const [matchErrors, setMatchErrors] = useState<Partial<Record<ImportField, string>>>({});
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [massClose, setMassClose] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
+  // Invoices whose reminder the import cancelled because their amount or due date changed: Home lists them.
+  const [flagged, setFlagged] = useState(0);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const safeRef = useRef<HTMLButtonElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const shownStep = useRef<Step>(step);
 
   const checked = useMemo(() => (file && step === 'check' ? checkRows(toImportRows(file, mapping)) : []), [file, mapping, step]);
   const plan = useMemo(() => {
@@ -104,27 +174,49 @@ export const ImportScreen = () => {
     return planImport(checked, invoices.data, liveByInvoice, new Set(clients.data.map((c) => c.name.replace(/^ +| +$/g, '').toLowerCase())));
   }, [step, checked, invoices.data, live.data, clients.data]);
 
+  // A file error sits in the drop zone; bring it to the middle of the screen, clear of the phone's bottom bar.
+  useEffect(() => {
+    if (errorCount > 0) errorRef.current?.scrollIntoView({ block: 'center' });
+  }, [errorCount]);
+
+  // Each step starts at its heading: focus moves there (the button that was pressed has gone), and the page scrolls
+  // back up if the heading is above the screen, as after a file error was scrolled into view. The Check step's
+  // heading appears once the current invoices have loaded, so this waits for it.
+  useEffect(() => {
+    if (shownStep.current === step) return;
+    const heading = stepHeadingRef.current;
+    if (!heading) return;
+    shownStep.current = step;
+    heading.focus({ preventScroll: true });
+    if (heading.getBoundingClientRect().top < 0) headRef.current?.scrollIntoView({ block: 'start' });
+  }, [step, plan]);
+
+  const fail = (message: string) => {
+    setChooseError(message);
+    setErrorCount((count) => count + 1);
+  };
+
   const choose = async (picked: File | undefined) => {
     if (!picked) return;
     setChooseError(null);
     setResult(null);
     if (!/\.csv$/i.test(picked.name) && !['text/csv', 'application/vnd.ms-excel', 'text/plain'].includes(picked.type)) {
-      setChooseError(NOT_CSV);
+      fail(NOT_CSV);
       return;
     }
     setReading(true);
     try {
       const parsed = toParsedFile(picked.name, await readCsv(picked));
       if (!parsed || parsed.headers.filter(Boolean).length < 2) {
-        setChooseError(NOT_CSV);
+        fail(NOT_CSV);
         return;
       }
       if (parsed.rows.length === 0) {
-        setChooseError('The file has no rows to import.');
+        fail('The file has no rows to import.');
         return;
       }
       if (parsed.rows.length > MAX_ROWS) {
-        setChooseError(`Import up to 2,000 rows at a time. This file has ${parsed.rows.length.toLocaleString('en-AU')}.`);
+        fail(`Import up to 2,000 rows at a time. This file has ${parsed.rows.length.toLocaleString('en-AU')}.`);
         return;
       }
       const remembered = usableMapping(business.data?.column_mapping, parsed.headers);
@@ -137,7 +229,7 @@ export const ImportScreen = () => {
       setStep(complete ? 'check' : 'match');
       announce(complete ? `Read ${pluralise(parsed.rows.length, 'row')}. Columns matched.` : `Read ${pluralise(parsed.rows.length, 'row')}. Match the columns.`);
     } catch {
-      setChooseError(NOT_CSV);
+      fail(NOT_CSV);
     } finally {
       setReading(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -186,6 +278,7 @@ export const ImportScreen = () => {
       return;
     }
     setMassClose(null);
+    setFlagged(plan.cancelledReminders.filter((reminder) => reminder.reason !== 'invoice_closed').length);
     setResult(outcome.value);
     setStep('done');
   };
@@ -197,16 +290,32 @@ export const ImportScreen = () => {
   };
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
+  const words = plan ? planWords(plan) : null;
+  // A file that would close most open invoices makes choosing another file the main action (the mass-close guard).
+  const safeFirst = Boolean(words?.massClose);
+  const chooseAnother = (variant: 'primary' | 'secondary') => (
+    <Button key="choose" variant={variant} size="lg" unavailable={busy !== null} onClick={() => setStep('choose')}>
+      Choose another file
+    </Button>
+  );
 
   if (role !== 'owner' && role !== 'checker' && role !== 'admin') return null;
 
   return (
     <div className="page-wide stack-lg">
-      <div className="page-head stack-sm">
+      <div className="page-head stack-sm" ref={headRef}>
         <PageTitle documentTitle="Import invoices">Import invoices</PageTitle>
         <ol className="stepper" aria-label={`Step ${stepIndex + 1} of 4`}>
           {STEPS.map((s, index) => (
-            <li key={s.id} aria-current={s.id === step ? 'step' : undefined} data-state={index < stepIndex ? 'done' : undefined}>
+            <li
+              key={s.id}
+              aria-current={s.id === step ? 'step' : undefined}
+              data-state={index < stepIndex || (step === 'done' && s.id === 'done') ? 'done' : undefined}
+            >
+              {/* A green tick for a done step, a blue number for this one, a slate ring for the rest; the words say it too. */}
+              <span className="step-mark" aria-hidden="true">
+                {index < stepIndex || (step === 'done' && s.id === 'done') ? <Check size={14} strokeWidth={3} /> : index + 1}
+              </span>
               {s.label}
               <span className="visually-hidden">{index < stepIndex ? ', done' : s.id === step ? ', current step' : ''}</span>
             </li>
@@ -216,7 +325,7 @@ export const ImportScreen = () => {
 
       {step === 'choose' ? (
         <section className="stack" aria-labelledby="choose-heading">
-          <h2 className="t-heading" id="choose-heading">
+          <h2 className="t-heading" id="choose-heading" ref={stepHeadingRef} tabIndex={-1}>
             Upload your open invoices
           </h2>
           <p>
@@ -241,6 +350,7 @@ export const ImportScreen = () => {
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
           >
+            <IconTile icon={FileUp} tone="info" size="lg" />
             <input
               ref={inputRef}
               type="file"
@@ -250,6 +360,12 @@ export const ImportScreen = () => {
               aria-label="Choose a CSV file"
               onChange={(event) => void choose(event.target.files?.[0])}
             />
+            {chooseError ? (
+              // Inside the drop zone, above the button, where the person is looking (not under the bottom bar).
+              <div key={errorCount} ref={errorRef} id="import-error" className="import-file-error">
+                <FormError message={chooseError} />
+              </div>
+            ) : null}
             <Button
               variant="primary"
               size="lg"
@@ -260,7 +376,7 @@ export const ImportScreen = () => {
             >
               <Upload size={20} strokeWidth={1.5} aria-hidden="true" /> Choose a CSV file
             </Button>
-            <p className="t-caption">On a computer you can also drag the file here.</p>
+            <p className="t-caption import-drag-hint">On a computer you can also drag the file here.</p>
             {backend.preview ? (
               <Button
                 variant="secondary"
@@ -273,17 +389,12 @@ export const ImportScreen = () => {
               </Button>
             ) : null}
           </div>
-          {chooseError ? (
-            <div id="import-error">
-              <FormError message={chooseError} />
-            </div>
-          ) : null}
         </section>
       ) : null}
 
       {step === 'match' && file ? (
         <section className="stack" aria-labelledby="match-heading">
-          <h2 className="t-heading" id="match-heading">
+          <h2 className="t-heading" id="match-heading" ref={stepHeadingRef} tabIndex={-1}>
             Match your columns
           </h2>
           <p>
@@ -356,7 +467,7 @@ export const ImportScreen = () => {
         ) : (
           <section className="stack-lg" aria-labelledby="check-heading">
             <div className="stack-sm">
-              <h2 className="t-heading" id="check-heading">
+              <h2 className="t-heading" id="check-heading" ref={stepHeadingRef} tabIndex={-1}>
                 Check what will change
               </h2>
               <p>
@@ -364,50 +475,84 @@ export const ImportScreen = () => {
                 <span className="num">{formatAud(plan.fileTotalCents)}</span>.
               </p>
               {autoMatched ? (
-                <p className="t-caption">
-                  Columns matched automatically.{' '}
-                  <button type="button" className="btn btn-quiet" style={{ minHeight: 24, padding: 0 }} onClick={() => setStep('match')}>
+                <div className="row-wrap import-columns">
+                  <p className="t-caption">Columns matched automatically.</p>
+                  <Button variant="quiet" onClick={() => setStep('match')}>
                     Change columns
-                  </button>
-                </p>
+                  </Button>
+                </div>
               ) : null}
             </div>
 
+            {words?.massClose ? (
+              <Banner tone="warning">
+                <strong>{words.massClose.title}</strong> {words.massClose.body}
+              </Banner>
+            ) : null}
+
             <div className="card stack-sm" role="status">
-              <p className="list-title">
-                {plan.rowsSaved === 0
-                  ? 'No rows can be imported.'
-                  : `${pluralise(plan.rowsSaved, 'invoice')} will be saved${plan.rowsSkipped > 0 ? ` and ${pluralise(plan.rowsSkipped, 'row')} skipped` : ''}.`}
-                {plan.closed > 0
-                  ? ` ${pluralise(plan.closed, 'invoice')} ${plan.closed === 1 ? "isn't" : "aren't"} in this file and will be closed${
-                      plan.draftsCancelled > 0 ? `, and ${pluralise(plan.draftsCancelled, 'reminder')} will be cancelled` : ''
-                    }.`
-                  : plan.draftsCancelled > 0
-                    ? ` ${pluralise(plan.draftsCancelled, 'reminder')} will be cancelled.`
-                    : ''}
-              </p>
-              {plan.rowsSaved > 0 ? (
-                <p className="t-secondary">
-                  {listCounts([
-                    [plan.added, 'new'],
-                    [plan.updated, 'changed'],
-                    [plan.reopened, 'reopened'],
-                    [plan.keptPaid, 'already marked paid'],
-                    [plan.newClients, plan.newClients === 1 ? 'new client' : 'new clients'],
-                  ]) || 'No changes to your invoices.'}
-                </p>
-              ) : null}
+              <p className="list-title">{words?.headline}</p>
+              {words?.detail ? <p className="t-secondary">{words.detail}</p> : null}
               {plan.keptPaid > 0 ? (
                 <p className="t-secondary">
                   {plan.keptPaid === 1 ? '1 invoice you marked paid is still unpaid in Xero. It stays paid.' : `${plan.keptPaid} invoices you marked paid are still unpaid in Xero. They stay paid.`}
                 </p>
               ) : null}
-              {plan.massClose ? <p className="t-secondary">That's most of your open invoices. Check this is your full list of unpaid invoices.</p> : null}
             </div>
 
+            {words?.closing ? (
+              <section aria-labelledby="closing-heading" className="notice notice-warning stack-sm">
+                <h3 className="t-subheading notice-title" id="closing-heading">
+                  <TriangleAlert size={20} strokeWidth={2} aria-hidden="true" />
+                  {words.closing.heading}
+                </h3>
+                <p>{words.closing.explanation}</p>
+                <ul className="list">
+                  {plan.closingInvoices.slice(0, LIST_LIMIT).map((invoice) => (
+                    <li key={invoice.invoiceNumber} className="list-row">
+                      <div className="list-main">
+                        <p className="list-title">Invoice {invoice.invoiceNumber}</p>
+                        <p className="list-meta">{invoice.clientName}</p>
+                      </div>
+                      <div className="list-end">
+                        <span className="amount">{formatAud(invoice.amountDueCents)}</span>
+                        <span className="list-meta">Due {formatDate(invoice.dueDate)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {plan.closingInvoices.length > LIST_LIMIT ? <p className="t-caption">And {plan.closingInvoices.length - LIST_LIMIT} more.</p> : null}
+              </section>
+            ) : null}
+
+            {words?.cancelled ? (
+              <section aria-labelledby="cancelled-heading" className="notice stack-sm">
+                <h3 className="t-subheading notice-title" id="cancelled-heading">
+                  <CircleDashed size={20} strokeWidth={2} aria-hidden="true" />
+                  {words.cancelled.heading}
+                </h3>
+                <p>{words.cancelled.explanation}</p>
+                <ul className="list">
+                  {plan.cancelledReminders.slice(0, LIST_LIMIT).map((reminder) => (
+                    <li key={reminder.invoiceNumber} className="list-row">
+                      <div className="list-main">
+                        <p className="list-title">Invoice {reminder.invoiceNumber}</p>
+                        <p className="list-meta">{reminder.clientName}</p>
+                      </div>
+                      <div className="list-end">
+                        <span className="list-meta">{CANCELLED_BECAUSE[reminder.reason]}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {plan.cancelledReminders.length > LIST_LIMIT ? <p className="t-caption">And {plan.cancelledReminders.length - LIST_LIMIT} more.</p> : null}
+              </section>
+            ) : null}
+
             {plan.problems.length > 0 ? (
-              <section aria-labelledby="problems-heading" className="stack-sm">
-                <h3 className="t-heading" id="problems-heading">
+              <section aria-labelledby="problems-heading" className="notice notice-critical stack-sm">
+                <h3 className="t-subheading notice-title" id="problems-heading">
+                  <CircleAlert size={20} strokeWidth={2} aria-hidden="true" />
                   {plan.problems.length === 1 ? "1 row can't be imported" : `${plan.problems.length} rows can't be imported`}
                 </h3>
                 <p className="t-caption">Row numbers match your spreadsheet. Fix them there and import again; the other rows don't wait for them.</p>
@@ -422,11 +567,12 @@ export const ImportScreen = () => {
               </section>
             ) : null}
 
-            <section aria-labelledby="preview-heading" className="stack-sm">
-              <h3 className="t-heading" id="preview-heading">
+            {/* Not a named region itself: the scrolling box below carries the heading's name, so it is said once. */}
+            <section className="stack-sm">
+              <h3 className="t-subheading" id="preview-heading">
                 The first {Math.min(10, checked.length)} rows as we read them
               </h3>
-              <div className="table-wrap" tabIndex={0} role="region" aria-labelledby="preview-heading">
+              <SidewaysScroll labelledBy="preview-heading">
                 <table className="table">
                   <thead>
                     <tr>
@@ -455,14 +601,16 @@ export const ImportScreen = () => {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </SidewaysScroll>
             </section>
 
             <div className="stack-sm">
               {!online ? <Banner tone="warning">You're offline. Your place is saved.</Banner> : null}
               <div className="row-wrap">
+                {safeFirst ? chooseAnother('primary') : null}
                 <Button
-                  variant="primary"
+                  key="import"
+                  variant={safeFirst ? 'secondary' : 'primary'}
                   size="lg"
                   busy={busy === 'import'}
                   busyLabel="Importing…"
@@ -472,9 +620,7 @@ export const ImportScreen = () => {
                 >
                   Import {pluralise(plan.rowsSaved, 'invoice')}
                 </Button>
-                <Button variant="secondary" size="lg" unavailable={busy !== null} onClick={() => setStep('choose')}>
-                  Choose another file
-                </Button>
+                {safeFirst ? null : chooseAnother('secondary')}
               </div>
               {plan.rowsSaved === 0 ? (
                 <p className="t-caption" id="nothing-to-import">
@@ -488,8 +634,9 @@ export const ImportScreen = () => {
       ) : null}
 
       {step === 'done' && result ? (
-        <section className="summary-card" aria-labelledby="done-heading" role="status">
-          <h2 className="t-title" id="done-heading">
+        <section className="summary-card import-done" aria-labelledby="done-heading" role="status">
+          <IconTile icon={CircleCheck} tone="success" size="lg" />
+          <h2 className="t-title" id="done-heading" ref={stepHeadingRef} tabIndex={-1}>
             Done
           </h2>
           <p>
@@ -512,7 +659,10 @@ export const ImportScreen = () => {
               {result.invoices_kept_paid === 1 ? '1 invoice you marked paid is still unpaid in Xero. It stays paid.' : `${result.invoices_kept_paid} invoices you marked paid are still unpaid in Xero. They stay paid.`}
             </p>
           ) : null}
-          {result.drafts_cancelled > 0 ? <p className="t-secondary">Invoices that changed while a reminder waited are under Needs attention on Home.</p> : null}
+          {/* Only changed invoices go under Needs attention; a closed invoice's reminder is simply cancelled. */}
+          {result.drafts_cancelled > 0 && flagged > 0 ? (
+            <p className="t-secondary">Invoices that changed while a reminder waited are under Needs attention on Home.</p>
+          ) : null}
           <div className="stack-sm">
             <Link className="btn btn-primary btn-lg btn-block" to="">
               Back to Home

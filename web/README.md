@@ -73,6 +73,8 @@ Because GitHub Pages cannot send response headers, the build adds a Content Secu
 The preview is the same app with its backend swapped for PGlite, PostgreSQL compiled to WebAssembly. It runs `supabase/local/supabase_stubs.sql`, the seven migrations and the seed in the browser, so every click goes through the real functions, row-level security and role checks. It is for showing the app to people who have no local stack; it is not a test environment.
 
 ```bash
+npm run demo    # both steps below in one command, on Windows, macOS or Linux; Ctrl+C stops it
+
 VITE_BACKEND=preview npx vite build --outDir dist-preview --emptyOutDir
 npx vite preview --outDir dist-preview --port 4174    # http://127.0.0.1:4174
 ```

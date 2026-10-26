@@ -1,6 +1,9 @@
 // UI-01 Sign in (FR-01). Invited people only, with no password: the email carries a 6-digit code and a link, and the
 // screen leads with the code, because phones often open email links in the email app's own browser (TRD, Identity).
+// Where the email carries only a link (config.signInEmail "link": Supabase's built-in email on a free project), the
+// screen leads with the link instead and takes it pasted, or the address of the page it opened, on this device.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { config } from '../app/config.ts';
 import { useBackend, useSession } from '../app/session.tsx';
 import { toHref } from '../app/router.tsx';
 import { AppError, MESSAGES, toAppError } from '../backend/errors.ts';
@@ -93,13 +96,17 @@ export const CodeSignIn = ({
   quietSubmit?: boolean;
 }) => {
   const backend = useBackend();
+  // The email holds only a link: lead with it, and take it pasted (lib/sign-in-link.ts).
+  const linkOnly = config.signInEmail === 'link' && !backend.preview && typeof backend.auth.signInWithLink === 'function';
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState(lockedEmail ?? readItem(KEYS.signInEmail) ?? '');
   const [code, setCode] = useState('');
+  const [link, setLink] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'send' | 'verify' | null>(null);
   const [wait, setWait] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);
+  const linkRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -109,8 +116,8 @@ export const CodeSignIn = ({
   }, [wait]);
 
   useEffect(() => {
-    if (step === 'code') codeRef.current?.focus();
-  }, [step]);
+    if (step === 'code') (linkOnly ? linkRef : codeRef).current?.focus();
+  }, [step, linkOnly]);
 
   const sendCode = async (event?: FormEvent) => {
     event?.preventDefault();
@@ -132,11 +139,32 @@ export const CodeSignIn = ({
       setWait(RESEND_SECONDS);
     } catch (caught) {
       const appError = toAppError(caught);
-      setError(appError.message);
+      setError(linkOnly && appError.kind === 'rate-limit' ? MESSAGES.emailLimit : appError.message);
       if (appError.kind === 'rate-limit') {
         setStep('code');
         setWait(RESEND_SECONDS);
       }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const finishWithLink = async (value: string) => {
+    if (busy || !backend.auth.signInWithLink) return;
+    if (!value.trim()) {
+      setError('Paste the sign-in link, or the address of the page it opened.');
+      linkRef.current?.focus();
+      return;
+    }
+    setBusy('verify');
+    setError(null);
+    try {
+      const user = await backend.auth.signInWithLink(value);
+      await onSignedIn(user);
+    } catch (caught) {
+      setError(toAppError(caught).message);
+      linkRef.current?.focus();
+      linkRef.current?.select();
     } finally {
       setBusy(null);
     }
@@ -183,8 +211,76 @@ export const CodeSignIn = ({
           hint="We use your email only to sign you in."
         />
         <Button type="submit" variant={quietSubmit ? 'secondary' : 'primary'} size="lg" block busy={busy === 'send'} busyLabel="Sending…">
-          Email me a code
+          {linkOnly ? 'Email me a sign-in link' : 'Email me a code'}
         </Button>
+      </form>
+    );
+  }
+
+  if (linkOnly) {
+    return (
+      <form
+        className="stack"
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          void finishWithLink(link);
+        }}
+      >
+        <p>
+          We sent a sign-in link to <strong>{email}</strong>. It works once, for 1 hour. Open the email on this device and tap the link.
+        </p>
+        <Banner>
+          If the link opens a page that won't load, copy that page's whole address and paste it here. Or copy the link itself: press and hold it on a phone,
+          or right-click it on a computer.
+        </Banner>
+        <TextField
+          ref={linkRef}
+          label="Sign-in link"
+          name="sign-in-link"
+          type="url"
+          inputMode="url"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={link}
+          error={error}
+          hint="It starts with http."
+          onChange={(event) => setLink(event.target.value)}
+          onPaste={(event) => {
+            // A pasted link signs in at once, as a pasted code does.
+            const pasted = event.clipboardData.getData('text');
+            if (pasted.trim()) {
+              event.preventDefault();
+              setLink(pasted.trim());
+              void finishWithLink(pasted);
+            }
+          }}
+        />
+        <Button type="submit" variant="primary" size="lg" block busy={busy === 'verify'} busyLabel="Signing in…">
+          Sign in with the link
+        </Button>
+        <div className="row-wrap">
+          <Button variant="quiet" unavailable={wait > 0 || busy !== null} onClick={() => void sendCode()} aria-describedby="resend-wait">
+            Send a new link
+          </Button>
+          {!lockedEmail ? (
+            <Button
+              variant="quiet"
+              onClick={() => {
+                setStep('email');
+                setError(null);
+              }}
+            >
+              Use a different email
+            </Button>
+          ) : null}
+        </div>
+        {wait > 0 ? (
+          <p id="resend-wait" className="t-caption" aria-live="off">
+            You can ask for a new link in {wait} {wait === 1 ? 'second' : 'seconds'}.
+          </p>
+        ) : null}
       </form>
     );
   }

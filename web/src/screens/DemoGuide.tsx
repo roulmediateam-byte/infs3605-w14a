@@ -1,12 +1,14 @@
-// Preview only: "Try the Week 7 demo", a card for Home with the three steps of the Week 7 demonstration. Each step
-// ticks off from the business's own records (the activity log), never from anything the other screens remember, so
-// it is right after a reload, and for the owner and the checker alike. "Hide this" is remembered on this device.
+// "Try the Week 7 demo", a card for Home with the three steps of the Week 7 demonstration: in the preview, and in the
+// demonstration build for the owner of a Test data business (config.demoTools). Each step ticks off from the
+// business's own records (the activity log), never from anything the other screens remember, so it is right after a
+// reload, and for the owner and the checker alike. "Hide this" is remembered on this device.
 //
 // Mount it on Home with no props: <DemoGuide />. It needs the app's providers, which Home already has, and renders
-// nothing outside the preview build, for a team admin, or once hidden.
+// nothing in other builds, for a team admin, or once hidden.
 import { useQuery } from '@tanstack/react-query';
 import { Check, FlaskConical } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { config } from '../app/config.ts';
 import { useMessages } from '../app/messages.tsx';
 import { Link } from '../app/router.tsx';
 import { useBackend, useBusiness } from '../app/session.tsx';
@@ -14,7 +16,7 @@ import { PREVIEW_KEYS } from '../backend/preview-store.ts';
 import type { LogEntry } from '../lib/activity.ts';
 import { readItem, writeItem } from '../lib/storage.ts';
 import { IconTile } from '../ui/controls.tsx';
-import { useRunDrafting } from './More.tsx';
+import { useLiveDemoTools, useRunDrafting } from './More.tsx';
 import './DemoGuide.css';
 
 export interface DemoProgress {
@@ -47,16 +49,17 @@ const LOG_LIMIT = 500;
 
 const NOTHING_DONE: DemoProgress = { imported: false, drafted: false, reviewed: false };
 
-/** The card, in the preview build only. */
-export const DemoGuide = () => (import.meta.env.VITE_BACKEND === 'preview' ? <DemoGuideCard /> : null);
+/** The card, in the preview build and the demonstration build only. */
+export const DemoGuide = () => (import.meta.env.VITE_BACKEND === 'preview' || config.demoTools ? <DemoGuideCard /> : null);
 
 const DemoGuideCard = () => {
   const backend = useBackend();
   const { businessId, role } = useBusiness();
   const { show } = useMessages();
   const drafting = useRunDrafting();
+  const liveDemo = useLiveDemoTools();
   const [hidden, setHidden] = useState(() => readItem(PREVIEW_KEYS.demoGuideHidden) === 'yes');
-  const shown = Boolean(backend.preview) && !hidden && role !== 'admin';
+  const shown = ((Boolean(backend.preview) && role !== 'admin') || liveDemo) && !hidden;
   // Read again each time the card appears (Review's decisions don't refresh other screens' data), and after any change
   // made through the app's actions, which refresh everything under the business's key.
   const progress = useQuery({

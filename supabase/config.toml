@@ -32,3 +32,8 @@ enable_confirmations = false
 double_confirm_changes = true
 # FR-01 and NFR-07: one-time sign-in links expire within 1 hour.
 otp_expiry = 3600
+
+# The demonstration build's "Run it now" (supabase/functions/demo-weekly-run). Only a signed-in person's token gets in;
+# the function then checks that they own the business and that it is Test data. Deploy it to the dev project only.
+[functions.demo-weekly-run]
+verify_jwt = true

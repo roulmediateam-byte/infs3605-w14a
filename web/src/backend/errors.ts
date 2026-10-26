@@ -29,6 +29,10 @@ export const MESSAGES = {
   rateLimit: 'Wait a minute, then ask again.',
   badCode: "That code didn't work. Check the 6 digits, or ask for a new code.",
   badLink: "That sign-in link didn't work. It may have expired or been used. Send a new code.",
+  // When the sign-in email holds only a link (config.signInEmail "link"): Supabase's built-in email.
+  badLinkOnly: "That sign-in link didn't work. It may have expired or been used. Send a new link.",
+  notALink: "That isn't a sign-in link. Copy the whole link or address, starting with http.",
+  emailLimit: 'Too many sign-in emails for now: this project sends at most 2 an hour. Use the last link we sent, or try again later.',
   notAllowedValue: "That value isn't allowed. Check the field, then try again.",
 } as const;
 

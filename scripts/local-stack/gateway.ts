@@ -17,6 +17,7 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
+import { handle as demoWeeklyRun } from '../../supabase/functions/demo-weekly-run/handler.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -261,6 +262,19 @@ const handleAuth = async (req: IncomingMessage, res: ServerResponse, route: stri
 
   if (req.method === 'POST' && route === '/verify') {
     const body = await readJson(req);
+    // A pasted sign-in link (web/src/lib/sign-in-link.ts): like Supabase, its token is accepted as token_hash.
+    if (typeof body.token_hash === 'string') {
+      const entry = [...codes.entries()].find(([, pending]) => pending.linkToken === body.token_hash);
+      const user = entry ? findUser(entry[0]) : null;
+      const pending = entry?.[1];
+      if (!pending || !user || pending.used || pending.expiresAt < Date.now()) {
+        authError(res, 403, 'otp_expired', 'Email link is invalid or has expired');
+        return;
+      }
+      pending.used = true;
+      sendJson(res, 200, sessionFor(user));
+      return;
+    }
     const email = String(body.email ?? '').trim().toLowerCase();
     const token = String(body.token ?? '').trim();
     const pending = codes.get(email);
@@ -472,6 +486,34 @@ const reset = async (): Promise<void> => {
 };
 
 // ---------------------------------------------------------------------------------------------
+// /functions/v1/demo-weekly-run: the demonstration build's "Run it now", run in-process with this stack's keys
+// ---------------------------------------------------------------------------------------------
+const serveDemoWeeklyRun = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+  // As Supabase's verify_jwt check does: only a token this stack signed gets through to the function.
+  const token = bearer(req);
+  if (!token || !verifyToken(token)) {
+    authError(res, 401, 'unauthorized', 'Missing or invalid JWT');
+    return;
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(req.headers)) if (typeof value === 'string') headers.set(name, value);
+  const request = new Request(`http://127.0.0.1:${config.port}/functions/v1/demo-weekly-run`, {
+    method: req.method,
+    headers,
+    body: req.method === 'GET' || req.method === 'HEAD' ? null : Buffer.concat(chunks),
+  });
+  const response = await demoWeeklyRun(request, {
+    SUPABASE_URL: `http://127.0.0.1:${config.port}`,
+    SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE_KEY,
+    SUPABASE_ANON_KEY: ANON_KEY,
+  });
+  res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
+  res.end(Buffer.from(await response.arrayBuffer()));
+};
+
+// ---------------------------------------------------------------------------------------------
 // Server
 // ---------------------------------------------------------------------------------------------
 const server = createServer((req, res) => {
@@ -490,6 +532,10 @@ const server = createServer((req, res) => {
     }
     if (pathname.startsWith('/auth/v1')) {
       await handleAuth(req, res, pathname.slice('/auth/v1'.length) || '/', url.searchParams);
+      return;
+    }
+    if (pathname === '/functions/v1/demo-weekly-run') {
+      await serveDemoWeeklyRun(req, res);
       return;
     }
     if (pathname === '/__local/codes' && req.method === 'GET') {

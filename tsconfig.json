@@ -14,5 +14,5 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true
   },
-  "include": ["jobs/**/*.ts", "scripts/**/*.ts"]
+  "include": ["jobs/**/*.ts", "scripts/**/*.ts", "supabase/functions/**/*.ts"]
 }

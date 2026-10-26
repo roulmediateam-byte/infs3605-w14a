@@ -313,14 +313,28 @@ export interface PreviewTools {
   resetDemo(): Promise<void>;
 }
 
+/** How a drafting run started from the app went (the preview's "Run it now", or the demonstration build's). */
+export interface DraftingRunResult {
+  drafted: number;
+  /** True when Claude was asked for the wording; false when the fixed templates were used. */
+  claude: boolean;
+}
+
 export interface Backend {
   readonly kind: 'supabase' | 'preview';
   readonly preview?: PreviewTools;
+  /**
+   * The demonstration build only: Sunday's drafting run, now, for a Test data business the person owns
+   * (supabase/functions/demo-weekly-run). Absent in every other build.
+   */
+  runDraftingNow?(businessId: string): Promise<DraftingRunResult>;
   auth: {
     currentUser(): Promise<AuthUser | null>;
     onChange(listener: (event: AuthEvent, user: AuthUser | null) => void): () => void;
     sendCode(email: string, redirectTo: string): Promise<void>;
     verifyCode(email: string, code: string): Promise<AuthUser>;
+    /** Signs in with a pasted sign-in link, or the address it opened (lib/sign-in-link.ts). The real backend only. */
+    signInWithLink?(pasted: string): Promise<AuthUser>;
     /** Why the emailed sign-in link the page opened with didn't work, once; null if it worked or there was none. */
     takeLinkProblem?(): string | null;
     /** Forgets the session on this device, whatever the network does. */

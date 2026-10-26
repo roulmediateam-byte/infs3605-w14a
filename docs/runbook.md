@@ -29,6 +29,7 @@ GitHub Pages serves the app; the site is public even from a private repository, 
    - `PILOT_SUPABASE_URL` and `PILOT_SUPABASE_PUBLISHABLE_KEY` on Mon 2 Nov 2026. Until they exist, the site root uses the dev project too.
    - `SUPPORT_EMAIL`, the team address behind "Contact the team" under More. It sends the business code only.
    - `DEMO_HIDE_SCREENS`, for example `invoices,clients,settings`, to leave screens out of the demonstration build's navigation. Empty shows every screen.
+   - `SIGN_IN_EMAIL`: `link` while the project sends Supabase's built-in email. On a new free project its templates can't change without custom SMTP, so the email holds a link and no code. Sign-in then leads with the link and also takes it pasted, so a wrong Site URL or a phone's email app can't strand anyone. Leave it empty once the email carries the code.
 4. In each Supabase project, Authentication > URL Configuration: add `https://OWNER.github.io/REPO/` and `https://OWNER.github.io/REPO/demo/` to the redirect URLs. The sign-in link returns to the build the person signed in from, and Supabase sends it only to listed addresses. Set the Site URL to the root until Mon 2 Nov 2026; then set the dev project's to `/demo/`.
 5. Merge to `main`: any change under `web/` publishes both builds. To publish without a change, run Actions > "Deploy the web app" > Run workflow.
 6. After each publish, open both builds on a phone and sign in with a code. Check that the browser console shows no "Content Security Policy" errors and that a briefing email's Review link opens the right draft.
@@ -116,12 +117,14 @@ AT-10 needs a real Sunday run and a real Monday briefing. Reset the dev project 
 
 The seed's addresses end in `.test`, which never receives mail, so point them at team inboxes first.
 
+Without GitHub secrets: the Edge Function `demo-weekly-run` runs step 6 from the app itself. Deploy it to the dev project only: `supabase functions deploy demo-weekly-run --use-api --project-ref <dev ref>`. The demonstration build (`VITE_DEMO_TOOLS=on`) then shows the owner of a Test data business "Try the Week 7 demo" on Home and "Run it now" under More. Either runs the scheduled job's own code, forced, with the project's service key, which never reaches the browser. The function refuses anyone but the business's active owner, and any business that isn't Test data. Claude writes the wording once `ANTHROPIC_API_KEY` is set under Edge Functions > Secrets; until then the fixed templates do.
+
 Steps 1 to 4 in one go: Actions > "Set up the dev database" > Run workflow, type `RESET`, then download "demo-import" from the run's artifacts and sign in as in step 3. Run it again to start a rehearsal over; sign in again afterwards. The manual steps:
 
 1. On the dev project, reset to the seed: `supabase db reset --linked` (dev only), or apply `seed.sql` in the SQL editor.
 2. Point the seed's owner and checker at team inboxes: `psql "<dev connection string>" -v owner_email='<team inbox>' -v checker_email='<team inbox>' -f scripts/demo-emails.sql`. Plus-addresses of one inbox work. Never commit the addresses.
-3. Add both addresses as users (Authentication > Add user), then open the demonstration build (`https://OWNER.github.io/REPO/demo/`) on the demonstration phone and sign in as the owner with the 6-digit code.
+3. Add both addresses as users (Authentication > Add user), then open the demonstration build (`https://OWNER.github.io/REPO/demo/`) on the demonstration phone and sign in as the owner with the 6-digit code. With `SIGN_IN_EMAIL=link`, open the emailed link on that phone instead, or paste it into the sign-in screen.
 4. Generate the import file: `psql "<dev connection string>" -f scripts/make-demo-csv.sql > demo-import.csv`. It closes 1043, lowers 1051 by A$450.00 (so its draft is cancelled and flagged), skips one bad row and adds 1078. After the import, Review holds 3 drafts: 1066, 1056 and 1062.
 5. At 1:30 pm, run "Briefing" on dev with the seed business's id (`0d5e0000-0000-4000-8000-000000000001`). Force is needed only if a briefing already went that day.
-6. During the demonstration, the evidence lead runs "Weekly run" on dev with the seed business's id and force ticked, and the narrator says so: in real use it runs every Sunday at 9:07 pm. Force is needed because the seed already holds this week's run. 1051 is redrafted at A$8,000.00, so Review holds 4 drafts.
+6. During the demonstration, the evidence lead runs "Weekly run" on dev with the seed business's id and force ticked, and the narrator says so: in real use it runs every Sunday at 9:07 pm. Without GitHub secrets, the driver taps "Run Sunday's drafting" on Home instead. Force is needed because the seed already holds this week's run. 1051 is redrafted at A$8,000.00, so Review holds 4 drafts.
 7. Follow the app flow's demonstration path. If the run is slow, carry on and return to 1051 at the end.

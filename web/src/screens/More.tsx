@@ -1,11 +1,12 @@
 // More: Import, Activity log, Settings (owner), Contact the team, Keyboard shortcuts (on a computer) and Sign out.
 // "Contact the team" sits in the same place on every screen's More (WCAG 3.2.6) and sends the business's code only.
-// The preview adds Sunday's drafting run at the top, the demo's key step, and "Reset demo data" at the bottom.
+// The preview adds Sunday's drafting run at the top, the demo's key step, and "Reset demo data" at the bottom. The
+// demonstration build adds the same drafting run for the owner of a Test data business (config.demoTools).
 import { Building2, ChevronRight, FlaskConical, Keyboard, LogOut, MessageCircle, RotateCcw, ScrollText, Settings, Upload } from 'lucide-react';
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { config, screenEnabled } from '../app/config.ts';
 import { useMessages } from '../app/messages.tsx';
-import { useAction } from '../app/queries.ts';
+import { useAction, useBusinessRecord } from '../app/queries.ts';
 import { Link } from '../app/router.tsx';
 import { useBackend, useBusiness, useSession } from '../app/session.tsx';
 import { KEYS, readItem, writeItem } from '../lib/storage.ts';
@@ -23,22 +24,44 @@ const subscribeDesktop = (listener: () => void) => {
 export const businessCode = (businessId: string): string => businessId.replace(/-/g, '').slice(0, 8).toUpperCase();
 
 /**
- * Preview only: "Run it now", Sunday's drafting run done straight away. More and the demo guide (DemoGuide.tsx) share
- * it, so both do exactly the same thing and say the same thing after.
+ * "Run it now", Sunday's drafting run done straight away: in the preview (fixed templates, in the browser), and in the
+ * demonstration build for the owner of a Test data business (the scheduled job's own run, through
+ * supabase/functions/demo-weekly-run). More and the demo guide (DemoGuide.tsx) share it, so both do exactly the same
+ * thing and say the same thing after.
  */
 export const useRunDrafting = () => {
   const backend = useBackend();
+  const { businessId } = useBusiness();
   const { run, busy } = useAction();
   const { show } = useMessages();
   const runNow = () =>
-    void run('weekly-run', () => backend.preview?.runWeeklyRun() ?? Promise.resolve({ drafted: 0 }), { refresh: 'wait' }).then((result) =>
-      show(
-        result.ok
-          ? { text: `Your apprentice drafted ${result.value.drafted === 1 ? '1 reminder' : `${result.value.drafted} reminders`}.` }
-          : { text: result.error.message, tone: 'critical' },
-      ),
-    );
+    void run(
+      'weekly-run',
+      async () => {
+        if (backend.preview) return { ...(await backend.preview.runWeeklyRun()), claude: false, live: false };
+        if (backend.runDraftingNow) return { ...(await backend.runDraftingNow(businessId)), live: true };
+        return { drafted: 0, claude: false, live: false };
+      },
+      { refresh: 'wait' },
+    ).then((result) => {
+      if (!result.ok) {
+        show({ text: result.error.message, tone: 'critical' });
+        return;
+      }
+      const { drafted, claude, live } = result.value;
+      const count = `Your apprentice drafted ${drafted === 1 ? '1 reminder' : `${drafted} reminders`}.`;
+      const how = live && drafted > 0 ? (claude ? ' Claude wrote the wording.' : ' It used the ready-made templates.') : '';
+      show({ text: `${count}${how}` });
+    });
   return { runNow, busy: busy === 'weekly-run' };
+};
+
+/** The demonstration build's drafting run is for the owner of a Test data business only (as the function checks). */
+export const useLiveDemoTools = (): boolean => {
+  const backend = useBackend();
+  const { role } = useBusiness();
+  const business = useBusinessRecord();
+  return !backend.preview && typeof backend.runDraftingNow === 'function' && role === 'owner' && business.data?.is_test_data === true;
 };
 
 /** Preview only: "Reset demo data", with a question first. */
@@ -98,6 +121,7 @@ export const MoreScreen = () => {
   const { memberships, signOut } = useSession();
   const backend = useBackend();
   const drafting = useRunDrafting();
+  const liveDemo = useLiveDemoTools();
   const [shortcuts, setShortcuts] = useState(readItem(KEYS.shortcuts) === 'on');
   const onComputer = useSyncExternalStore(subscribeDesktop, () => window.matchMedia(desktopQuery).matches, () => false);
   const code = businessCode(businessId);
@@ -110,16 +134,17 @@ export const MoreScreen = () => {
       <div className="page-head">
         <PageTitle documentTitle="More">More</PageTitle>
       </div>
-      {backend.preview && role !== 'admin' ? (
+      {(backend.preview && role !== 'admin') || liveDemo ? (
         // The demo's key step, so it is the screen's one primary button, in an information-toned preview card.
         <section className="card card-info stack-sm" aria-labelledby="preview-run-heading">
           <h2 className="t-heading card-title" id="preview-run-heading">
             <IconTile icon={FlaskConical} tone="info" size="sm" />
-            Preview: Sunday's drafting run
+            {backend.preview ? "Preview: Sunday's drafting run" : "Demo: Sunday's drafting run"}
           </h2>
           <p className="t-secondary">
-            In the app this runs every Sunday at 9:07 pm. The preview has no AI, so it drafts from ready-made templates. Like the real run, it replaces
-            last week's unsent drafts.
+            {backend.preview
+              ? "In the app this runs every Sunday at 9:07 pm. The preview has no AI, so it drafts from ready-made templates. Like the real run, it replaces last week's unsent drafts."
+              : "This runs every Sunday at 9:07 pm. For Test data, you can run it now. Claude writes the wording once the team's Claude key is set; until then, ready-made templates do. Like every run, it replaces last week's unsent drafts."}
           </p>
           <div>
             <Button variant="primary" busy={drafting.busy} busyLabel="Drafting…" onClick={drafting.runNow}>

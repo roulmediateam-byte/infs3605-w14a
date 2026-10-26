@@ -21,7 +21,7 @@ export const NoBusinessScreen = () => {
         Ask the owner to invite you, or contact the team. You're signed in as <strong>{user?.email}</strong>.
       </p>
       {config.supportEmail ? (
-        <a className="btn btn-secondary" href={`mailto:${config.supportEmail}?subject=${encodeURIComponent('Get-Paid Apprentice: no business yet')}`}>
+        <a className="btn btn-secondary" href={`mailto:${config.supportEmail}?subject=${encodeURIComponent('Payprentice: no business yet')}`}>
           Contact the team
         </a>
       ) : null}

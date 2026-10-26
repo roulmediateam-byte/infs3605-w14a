@@ -141,7 +141,7 @@ test('settings: export all downloads a zip of CSV files', async ({ page }) => {
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export all' }).click();
   const file = await download;
-  expect(file.suggestedFilename()).toMatch(/^get-paid-export-harbour-line-electrical-test-data-\d{4}-\d{2}-\d{2}\.zip$/);
+  expect(file.suggestedFilename()).toMatch(/^payprentice-export-harbour-line-electrical-test-data-\d{4}-\d{2}-\d{2}\.zip$/);
   const bytes = readFileSync((await file.path()) ?? '');
   expect(bytes.readUInt32LE(0)).toBe(0x04034b50);
   const text = bytes.toString('latin1');

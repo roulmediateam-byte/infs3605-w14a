@@ -10,7 +10,7 @@ test('an uninvited email is told to ask the owner', async ({ page }) => {
 
 test('a wrong code is refused, and the right one signs the owner in to Home', async ({ page }) => {
   await page.goto('');
-  await expect(page).toHaveTitle('Sign in · Get-Paid Apprentice');
+  await expect(page).toHaveTitle('Sign in · Payprentice');
   await page.getByLabel('Email').fill(OWNER);
   await page.getByRole('button', { name: 'Email me a code' }).click();
   await expect(page.getByText('It works once, for 1 hour.')).toBeVisible();

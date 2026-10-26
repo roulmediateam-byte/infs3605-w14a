@@ -1,6 +1,8 @@
-# Get-Paid Apprentice
+# Payprentice
 
-Get-Paid Apprentice drafts payment reminders in the owner's voice and a Monday briefing for small construction businesses, and nothing reaches a client until the owner or a named checker approves it. This repository holds the database, the scheduled jobs, the AI prompt and the plan for the proof of concept (PoC) built by Team W14A-5 for INFS3605 at UNSW, Term 3 2026.
+Payprentice drafts payment reminders in the owner's voice and a Monday briefing for small construction businesses, and nothing reaches a client until the owner or a named checker approves it. This repository holds the database, the scheduled jobs, the AI prompt and the plan for the proof of concept (PoC) built by Team W14A-5 for INFS3605 at UNSW, Term 3 2026.
+
+**Name:** the product was called Get-Paid Apprentice until Mon 26 Oct 2026. Payprentice is a working name until the team's trade mark search (IP Australia, classes 9 and 42) is done. The repository, packages, database and storage keys keep their `getpaid` names, so nothing that is already set up breaks.
 
 **Status, Thu 15 Oct 2026:** the backend and the web app are built and tested. The backend has 235 database tests, 34 job tests, an end-to-end check, and a check of the demonstration and onboarding scripts. The web app (`web/`) has 21 unit tests and 45 browser tests, each run on a phone and a computer screen, with accessibility checks, plus 6 tests of the site as GitHub Pages serves it, including the speed budgets. Next: link GitHub, set up the Supabase projects and publish (`docs/runbook.md`). All data in this repository is synthetic and labelled "Test data".
 

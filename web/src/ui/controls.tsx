@@ -169,7 +169,7 @@ export const PageTitle = ({
 }) => {
   const ref = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    document.title = `${documentTitle} · Get-Paid Apprentice`;
+    document.title = `${documentTitle} · Payprentice`;
     const moved = takeMoveFlag();
     if (moved || focusOnMount) ref.current?.focus({ preventScroll: true });
     // focusOnMount only matters on arrival.

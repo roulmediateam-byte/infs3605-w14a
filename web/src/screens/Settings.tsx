@@ -219,7 +219,7 @@ export const SettingsScreen = () => {
       setDataError(result.error.message);
       return;
     }
-    downloadBytes(zip(exportEntries(result.value)), `get-paid-export-${slug(b.name)}-${sydneyDate()}.zip`);
+    downloadBytes(zip(exportEntries(result.value)), `payprentice-export-${slug(b.name)}-${sydneyDate()}.zip`);
     show({ text: 'Exported. The .zip file is in your downloads.' });
   };
 

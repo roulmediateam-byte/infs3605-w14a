@@ -102,7 +102,7 @@ export const MoreScreen = () => {
   const onComputer = useSyncExternalStore(subscribeDesktop, () => window.matchMedia(desktopQuery).matches, () => false);
   const code = businessCode(businessId);
   const contactHref = config.supportEmail
-    ? `mailto:${config.supportEmail}?subject=${encodeURIComponent('Get-Paid Apprentice help')}&body=${encodeURIComponent(`Business code: ${code}\r\n\r\n`)}`
+    ? `mailto:${config.supportEmail}?subject=${encodeURIComponent('Payprentice help')}&body=${encodeURIComponent(`Business code: ${code}\r\n\r\n`)}`
     : null;
 
   return (

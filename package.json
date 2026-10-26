@@ -2,7 +2,7 @@
   "name": "getpaid-apprentice",
   "version": "0.1.0",
   "private": true,
-  "description": "Get-Paid Apprentice: database schema, scheduled jobs and prompts (Team W14A-5, INFS3605, UNSW).",
+  "description": "Payprentice: database schema, scheduled jobs and prompts (Team W14A-5, INFS3605, UNSW).",
   "type": "module",
   "engines": {
     "node": ">=22.18"

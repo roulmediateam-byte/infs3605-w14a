@@ -1,4 +1,4 @@
-# Get-Paid Apprentice web app
+# Payprentice web app
 
 The web app is where an owner or checker reviews the apprentice's drafts, sends them from their own email app and keeps invoices up to date. It is a React and TypeScript single-page app built with Vite, installable on a phone. It talks only to Supabase, with the publishable key, so the browser holds no secret. Every change goes through a database function that checks the person's role (ADR 0003), so the server enforces approval whatever the browser does.
 

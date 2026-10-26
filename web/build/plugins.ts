@@ -69,11 +69,11 @@ const notFoundPage = (base: string, subApps: string[]): string => {
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-${sha256Base64(script)}'; base-uri 'none'" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
-    <title>Get-Paid Apprentice</title>
+    <title>Payprentice</title>
     <script>${script}</script>
   </head>
   <body>
-    <p><a href="${base}">Open Get-Paid Apprentice</a></p>
+    <p><a href="${base}">Open Payprentice</a></p>
   </body>
 </html>
 `;

@@ -1,4 +1,4 @@
--- Get-Paid Apprentice · seed: synthetic "Test data" for local development and the Week 7 demonstration.
+-- Payprentice · seed: synthetic "Test data" for local development and the Week 7 demonstration.
 -- Every business, client and person here is invented and labelled "Test data" (course rule RI-9; NFR-02).
 -- Never add real businesses, clients or people to this file, to tests or to any GitHub issue (NFR-04, CM-3).
 --

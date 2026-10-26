@@ -78,7 +78,9 @@ jobs:
     # computer; pushes to main on the phone only. The tests of the site as GitHub Pages serves it run with them.
     needs: checks
     if: needs.checks.outputs.web == 'true'
-    runs-on: ubuntu-latest
+    # Pinned: GitHub's ubuntu-latest is Ubuntu 26.04 since Oct 2026, where Playwright 1.56.1 can't install Chromium.
+    # Move to ubuntu-latest again once Playwright is upgraded past the version that adds 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     # The real migrations, row-level security and functions behind PostgREST, with a stand-in for Supabase Auth's
     # email codes (scripts/local-stack). Test data only (RI-9).

@@ -5,12 +5,13 @@ How to set up, run and recover the service. Every step uses Test data unless an 
 ## Set up a project (sprint 1, about 30 minutes)
 
 1. Create two Supabase projects in the Sydney region (ap-southeast-2, NFR-17): `getpaid-dev` (Test data only) and `getpaid-pilot` (owner testing). The free plan allows two active projects.
-2. Link and push the schema: `supabase link --project-ref <ref>` then `supabase db push`. Do not run `seed.sql` on the pilot project.
+2. Link and push the schema: `supabase link --project-ref <ref>` then `supabase db push`. Do not run `seed.sql` on the pilot project. For the dev project, Actions > "Set up the dev database" does this from GitHub instead, with the seed (Test data), and needs no command-line tools; it uses the secrets in step 6.
 3. In Authentication: turn off new sign-ups; set the one-time link expiry to 3,600 seconds (FR-01, NFR-07); set the site URL to the GitHub Pages address; set custom SMTP to Resend (the built-in sender allows only 2 emails an hour); edit the magic-link and the invite-user email templates so each carries both the link (`{{ .ConfirmationURL }}`) and the 6-digit code (`{{ .Token }}`), because phones often open links in an email app's own browser. The team invites owners from Authentication, so the invite template is the first email an owner sees.
 4. In Resend: add the sending domain and publish its SPF, DKIM and DMARC records (NFR-18). Send a test briefing to Gmail and Outlook and check it lands in the inbox.
 5. In the Claude Console: create an API key and set a monthly spending limit (proposed A$20, NFR-15).
 6. In GitHub, Settings > Secrets and variables > Actions. Each job runs once per project it targets, so the dev and pilot projects each have their own address and key:
    - secrets `SUPABASE_SERVICE_ROLE_KEY` (dev), `SUPABASE_SERVICE_ROLE_KEY_PILOT`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `ALERT_EMAIL`;
+   - for "Set up the dev database": secrets `DEV_DB_URL` (the dev project's "Session pooler" connection string from Connect, with the database password; GitHub's runners can't reach the direct connection, which needs IPv6), `DEMO_OWNER_EMAIL` and `DEMO_CHECKER_EMAIL` (team inboxes; plus-addresses of one inbox work). Until custom SMTP is set up, Supabase's built-in sender only mails the project team's own addresses, so use the owner's Supabase sign-in address as `DEMO_OWNER_EMAIL`;
    - variables `SUPABASE_URL` (dev), `SUPABASE_URL_PILOT`, `APP_URL` (the demo build), `APP_URL_PILOT` (the owners' build), `EMAIL_FROM`, `AI_MODEL` (`claude-haiku-5-5`);
    - variable `JOB_TARGETS`: `["dev"]` until owner testing starts on Mon 2 Nov 2026, then `["dev","pilot"]`. The dev project keeps running after that, because the video (Thu 12 Nov) and the Week 10 Showcase are demonstrated on it, and its daily health check stops the free database from pausing.
 7. Set the variable `JOBS_ENABLED` to `true` to switch the schedules on. Set it to `false` to stop them at once, on both projects.
@@ -114,6 +115,8 @@ AT-10 needs a real Sunday run and a real Monday briefing. Reset the dev project 
 ## Week 7 demonstration (Wed 28 Oct 2026, 2:00 pm)
 
 The seed's addresses end in `.test`, which never receives mail, so point them at team inboxes first.
+
+Steps 1 to 4 in one go: Actions > "Set up the dev database" > Run workflow, type `RESET`, then download "demo-import" from the run's artifacts and sign in as in step 3. Run it again to start a rehearsal over; sign in again afterwards. The manual steps:
 
 1. On the dev project, reset to the seed: `supabase db reset --linked` (dev only), or apply `seed.sql` in the SQL editor.
 2. Point the seed's owner and checker at team inboxes: `psql "<dev connection string>" -v owner_email='<team inbox>' -v checker_email='<team inbox>' -f scripts/demo-emails.sql`. Plus-addresses of one inbox work. Never commit the addresses.

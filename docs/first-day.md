@@ -2,9 +2,9 @@
 
 Start here. In about 30 minutes you will have the app running, know where things are and know how to make a change.
 
-## What Get-Paid Apprentice is
+## What Payprentice is
 
-Get-Paid Apprentice drafts payment reminders and a Monday briefing for small construction businesses, in the owner's voice. Nothing reaches a client until the owner or a named checker approves it. Team W14A-5 is building it as a proof of concept for INFS3605 at UNSW in Term 3 2026.
+Payprentice drafts payment reminders and a Monday briefing for small construction businesses, in the owner's voice. Nothing reaches a client until the owner or a named checker approves it. Team W14A-5 is building it as a proof of concept for INFS3605 at UNSW in Term 3 2026.
 
 The demonstration is on Wed 28 Oct 2026 at 2:00 pm AEDT (Australian Eastern Daylight Time).
 

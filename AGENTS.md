@@ -1,6 +1,6 @@
 # Instructions for AI coding tools
 
-Get-Paid Apprentice drafts payment reminders for small construction businesses, and nothing reaches a client until the owner or a named checker approves it. This repository holds its Supabase database, scheduled jobs, AI prompt and React web app, with synthetic Test data only.
+Payprentice drafts payment reminders for small construction businesses, and nothing reaches a client until the owner or a named checker approves it. This repository holds its Supabase database, scheduled jobs, AI prompt and React web app, with synthetic Test data only.
 
 Read [README.md](README.md) for how it works, [CONTRIBUTING.md](CONTRIBUTING.md) for the flow and [docs/testing.md](docs/testing.md) for every test suite.
 

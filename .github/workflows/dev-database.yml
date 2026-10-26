@@ -1,0 +1,133 @@
+# Resets the dev Supabase project to the migrations and the seed (synthetic Test data), then gets it ready for a
+# demonstration: the seed's owner and checker invitations point at team inboxes, both become sign-in users, and the
+# Week 7 import file is made (runbook, "Week 7 demonstration", steps 1 to 4). Nobody needs the Supabase command-line
+# tool or psql on their own computer.
+#
+# Dev project only. It refuses a database address that is not the dev project's, or that is the pilot project's.
+# Repository secrets used:
+#   DEV_DB_URL                 the dev project's "Session pooler" connection string, with the database password
+#                              (GitHub's runners have no IPv6, so the direct connection doesn't work from here);
+#   SUPABASE_SERVICE_ROLE_KEY  the dev project's secret (service role) key, as the scheduled jobs use;
+#   DEMO_OWNER_EMAIL, DEMO_CHECKER_EMAIL  team inboxes; plus-addresses of one inbox work. They stay in secrets, so the
+#                              log masks them and they are never committed (NFR-04, PD-8).
+# Repository variables used: SUPABASE_URL (dev), and SUPABASE_URL_PILOT when it exists, so the check can refuse it.
+name: Set up the dev database
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RESET to wipe the dev project and reload the Test data. Everything in it is replaced.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-database
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    name: Reset dev to the seed (Test data)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CONFIRM: ${{ inputs.confirm }}
+      DB_URL: ${{ secrets.DEV_DB_URL }}
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      PILOT_URL: ${{ vars.SUPABASE_URL_PILOT }}
+      SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OWNER_EMAIL: ${{ secrets.DEMO_OWNER_EMAIL }}
+      CHECKER_EMAIL: ${{ secrets.DEMO_CHECKER_EMAIL }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check the form and the settings
+        run: |
+          set -euo pipefail
+          if [ "$CONFIRM" != "RESET" ]; then
+            echo "::error::Type RESET in the form to run this. Nothing was changed."
+            exit 1
+          fi
+          for name in DB_URL SUPABASE_URL SERVICE_KEY OWNER_EMAIL CHECKER_EMAIL; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing setting $name. See docs/runbook.md, \"Set up a project\"."
+              exit 1
+            fi
+          done
+          project_ref() { printf '%s' "$1" | sed -nE 's#^https://([a-z0-9]+)\.supabase\.co/?$#\1#p'; }
+          dev_ref="$(project_ref "$SUPABASE_URL")"
+          if [ -z "$dev_ref" ]; then
+            echo "::error::SUPABASE_URL should look like https://<project ref>.supabase.co"
+            exit 1
+          fi
+          case "$DB_URL" in
+            *"$dev_ref"*) ;;
+            *) echo "::error::DEV_DB_URL is not the dev project's database. Nothing was changed."; exit 1 ;;
+          esac
+          if [ -n "$PILOT_URL" ]; then
+            pilot_ref="$(project_ref "$PILOT_URL")"
+            if [ -n "$pilot_ref" ] && [ "$pilot_ref" != "$dev_ref" ]; then
+              case "$DB_URL" in
+                *"$pilot_ref"*) echo "::error::DEV_DB_URL points at the pilot project. This workflow never touches it."; exit 1 ;;
+              esac
+            fi
+          fi
+          echo "Settings found for the dev project $dev_ref."
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+
+      - name: Reset to the migrations and the seed (Test data)
+        run: supabase db reset --db-url "$DB_URL" --yes
+
+      - name: Point the owner and the checker invitations at the team inboxes
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -v owner_email="$OWNER_EMAIL" -v checker_email="$CHECKER_EMAIL" -f scripts/demo-emails.sql
+
+      - name: Add the owner and the checker as sign-in users (sign-ups are off)
+        run: |
+          set -euo pipefail
+          for email in "$OWNER_EMAIL" "$CHECKER_EMAIL"; do
+            body="$(jq -n --arg email "$email" '{email: $email, email_confirm: true}')"
+            code="$(curl -sS -o response.json -w '%{http_code}' -X POST "${SUPABASE_URL%/}/auth/v1/admin/users" \
+              -H "apikey: $SERVICE_KEY" -H "Authorization: Bearer $SERVICE_KEY" \
+              -H 'Content-Type: application/json' -d "$body")"
+            if [ "$code" = "200" ] || [ "$code" = "201" ]; then
+              echo "Added a sign-in user."
+            elif [ "$code" = "422" ] && grep -qi 'already' response.json; then
+              echo "That sign-in user already exists."
+            else
+              echo "::error::Adding a sign-in user failed (HTTP $code): $(jq -r '.msg // .message // .error_description // "no message"' response.json)"
+              rm -f response.json
+              exit 1
+            fi
+          done
+          rm -f response.json
+
+      - name: Make the Week 7 import file (Test data)
+        run: |
+          set -euo pipefail
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f scripts/make-demo-csv.sql > demo-import.csv
+          echo "The import file has $(($(wc -l < demo-import.csv) - 1)) rows after the header."
+
+      - name: Keep the import file for the demonstration
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-import
+          path: demo-import.csv
+          retention-days: 7
+
+      - name: What to do next
+        run: |
+          {
+            echo "### The dev project holds the seed again (Test data)"
+            echo ""
+            echo "1. Download **demo-import** from this run's Artifacts. It is the Week 7 import file."
+            echo "2. Open the demonstration build (\`/demo/\` on the GitHub Pages site) on the demo device and sign in as the owner with the emailed code."
+            echo "3. In the demonstration, run **Weekly run** on dev with the business id \`0d5e0000-0000-4000-8000-000000000001\` and **force** ticked, so Claude drafts the week."
+            echo ""
+            echo "Delete the import file after the demonstration. Run this workflow again to start over."
+          } >> "$GITHUB_STEP_SUMMARY"

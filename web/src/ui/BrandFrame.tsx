@@ -9,7 +9,7 @@ export const BrandFrame = ({ children }: { children: ReactNode }) => (
     <div className="sign-in-brand">
       <div className="brand">
         <AppMark />
-        <span>Get-Paid Apprentice</span>
+        <span>Payprentice</span>
       </div>
       <div className="sign-in-pitch">
         <p>Approve and send the payment reminders your apprentice drafts each week.</p>

@@ -101,7 +101,7 @@ export const Shell = ({ route, children }: { route: RouteName; children: ReactNo
         <div className="nav-brand">
           <AppMark size={32} />
           <p className="nav-brand-text">
-            <span className="nav-app">Get-Paid Apprentice</span>
+            <span className="nav-app">Payprentice</span>
             <span className="nav-business">{business.data?.name ?? briefing.data?.business.name ?? ''}</span>
           </p>
         </div>

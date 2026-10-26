@@ -60,7 +60,7 @@ const BootScreen = ({ step, opening }: { step: number; opening: boolean }) => {
           <p className="t-caption">Step {step + 1} of 3</p>
         </div>
         <div className="stack">
-          <p>Get-Paid Apprentice drafts polite payment reminders for your overdue invoices. You check each one, then send it from your own email.</p>
+          <p>Payprentice drafts polite payment reminders for your overdue invoices. You check each one, then send it from your own email.</p>
           <p>Your apprentice is the helper that drafts reminders for you. It never sends anything.</p>
         </div>
         <p className="t-caption">Everything runs in this browser with made-up Test data. Nothing is sent.</p>

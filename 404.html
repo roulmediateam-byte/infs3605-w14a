@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-ljqXX/PvvsmnF/ZuxU0B5h5PPHaRqLAW6ZSFANjmRsA='; base-uri 'none'" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Payprentice</title>
+    <script>(function () {
+  var base = "/infs3605-w14a/";
+  var apps = ["demo/"];
+  var path = window.location.pathname;
+  var target = base;
+  for (var i = 0; i < apps.length; i++) {
+    if (path.indexOf(base + apps[i]) === 0) target = base + apps[i];
+  }
+  if (path.indexOf(target) !== 0) target = base;
+  var rest = path.slice(target.length) + window.location.search;
+  window.location.replace(target + '?p=' + encodeURIComponent(rest) + window.location.hash);
+})();</script>
+  </head>
+  <body>
+    <p><a href="/infs3605-w14a/">Open Payprentice</a></p>
+  </body>
+</html>

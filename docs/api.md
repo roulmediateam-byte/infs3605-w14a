@@ -6,7 +6,7 @@ The web app and the jobs call these functions through Supabase (`supabase.rpc('n
 
 | Function | Who | What it does | Returns |
 | --- | --- | --- | --- |
-| `accept_invitations()` | Anyone signed in | Call after every sign-in. Activates invitations for the user's email | `[{business_id, role}]`; empty means "Ask the owner to invite you" (FR-01) |
+| `accept_invitations()` | Anyone signed in | Call after every sign-in. Activates invitations for the user's email, except for accounts made by the demonstration sign-up, whose address nobody checked | `[{business_id, role}]`; empty means "Ask the owner to invite you" (FR-01) |
 | `create_business(p_name, p_owner_name, p_reply_to_email, p_sign_off?)` | Anyone signed in | First setup; the caller becomes owner; starts as Test data (D7) | business id |
 | `update_settings(p_business_id, p_changes)` | Owner | Changes listed settings (FR-02, FR-27, FR-32, FR-33, D3) | nothing |
 | `invite_checker(p_business_id, p_email, p_display_name)` | Owner | Records the invitation (FR-25); the invite-member Edge Function creates the sign-in account | membership id |
@@ -59,3 +59,5 @@ Errors to handle in the interface:
 | `job_health(p_as_of?)` | Health check | Failed and stuck runs |
 | `job_retention_purge(p_as_of?)` | Health check | Deletes businesses past their delete date, and all from Thu 31 Dec 2026 |
 | `job_orphan_users(p_as_of?)` | Health check | Sign-in accounts created more than 14 days ago with no current membership or invitation, for deletion through the Auth admin API |
+| `job_demo_sign_up_room(p_as_of?)` | Edge Function `demo-sign-up` | Whether the demonstration sign-up is open: `{open, reason, accounts, last_hour}`, with reason `open`, `busy` (60 an hour), `full` (300 accounts) or `closed` (after Wed 25 Nov 2026, PD-7) |
+| `job_demo_provision(p_user_id)` | Edge Function `demo-sign-up` | Gives an account made by the demonstration sign-up (`app_metadata.demo_sign_up`) its own copy of the seed's Test data business, as active owner, with `delete_after` Wed 25 Nov 2026. `{outcome, business_id}`: `created`, `exists` (safe to repeat), `limit` (10 copies), `not_demo` or `no_account` |

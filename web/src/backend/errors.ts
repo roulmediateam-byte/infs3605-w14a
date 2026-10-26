@@ -34,6 +34,9 @@ export const MESSAGES = {
   notALink: "That isn't a sign-in link. Copy the whole link or address, starting with http.",
   emailLimit: 'Too many sign-in emails for now: this project sends at most 2 an hour. Use the last link we sent, or try again later.',
   notAllowedValue: "That value isn't allowed. Check the field, then try again.",
+  // The demonstration build's sign-up (config.demoSignUp).
+  badPassword: "That email and password don't match. Check them, or create a new account.",
+  signUpFailed: "Couldn't make the account. Try again in a minute.",
 } as const;
 
 interface DatabaseErrorLike {

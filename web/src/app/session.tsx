@@ -79,7 +79,12 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const load = useCallback(
     async (signedInUser: AuthUser): Promise<void> => {
       try {
-        const list = await backend.acceptInvitations();
+        let list = await backend.acceptInvitations();
+        // The demonstration build's sign-up: an account made there gets its Test data business if it has none (its
+        // first try didn't finish, or the owner deleted it in Settings). Any other account waits for an invitation.
+        if (list.length === 0 && backend.ensureDemoBusiness && (await backend.ensureDemoBusiness())) {
+          list = await backend.acceptInvitations();
+        }
         setStoragePerson(signedInUser.id);
         userRef.current = signedInUser;
         setUser(signedInUser);

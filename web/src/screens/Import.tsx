@@ -6,6 +6,7 @@
 import { Check, CircleAlert, CircleCheck, CircleDashed, FileUp, MoveRight, TriangleAlert, Upload } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import './Import.css';
+import { config } from '../app/config.ts';
 import { useMessages } from '../app/messages.tsx';
 import { useOnline } from '../app/online.ts';
 import { useAction, useBusinessRecord, useClients, useDrafts, useInvoices } from '../app/queries.ts';
@@ -14,6 +15,7 @@ import { useBackend, useBusiness } from '../app/session.tsx';
 import { MESSAGES } from '../backend/errors.ts';
 import type { ImportResult } from '../backend/types.ts';
 import { formatDate } from '../lib/dates.ts';
+import { week7File } from '../lib/demo-file.ts';
 import {
   autoMap,
   CANCELLED_BECAUSE,
@@ -386,6 +388,18 @@ export const ImportScreen = () => {
                 }}
               >
                 Preview: use the Week 7 demonstration file
+              </Button>
+            ) : config.demoTools && business.data?.is_test_data ? (
+              // The demonstration build: the same file, built from this business's own invoices so the dates match
+              // whichever day its copy of the Test data was made (lib/demo-file.ts).
+              <Button
+                variant="secondary"
+                unavailable={reading || !invoices.data || !clients.data}
+                onClick={() => {
+                  if (invoices.data && clients.data) void choose(week7File(invoices.data, clients.data));
+                }}
+              >
+                Use the Week 7 demonstration file
               </Button>
             ) : null}
           </div>

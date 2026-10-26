@@ -137,6 +137,34 @@ const fromDraftingRefusal = async (error: unknown): Promise<AppError> => {
   return new AppError('unknown', body.error ?? MESSAGES.unknown);
 };
 
+/** The demonstration sign-up function's refusal (supabase/functions/demo-sign-up/handler.ts), as an AppError. */
+const fromSignUpRefusal = async (error: unknown): Promise<AppError> => {
+  if (!(error instanceof FunctionsHttpError)) {
+    return navigator.onLine === false ? new AppError('offline', MESSAGES.offline) : new AppError('network', MESSAGES.network);
+  }
+  const response = error.context as Response;
+  let body: { error?: string; code?: string } = {};
+  try {
+    body = (await response.json()) as { error?: string; code?: string };
+  } catch {
+    // Not the function's own answer (the platform refused first): fall back on the status.
+  }
+  const code = body.code ?? null;
+  if (response.status === 401 || code === 'signed_out') return new AppError('signed-out', MESSAGES.signedOut, { code });
+  if (code === 'exists') return new AppError('exists', body.error ?? MESSAGES.signUpFailed, { code });
+  if (response.status === 429) return new AppError('rate-limit', body.error ?? MESSAGES.rateLimit, { code });
+  if (body.error && response.status < 500) return new AppError('rule', body.error, { code });
+  return new AppError('unknown', body.error ?? MESSAGES.signUpFailed, { code });
+};
+
+/** A password sign-in that didn't work: Supabase Auth says invalid_credentials for any mismatch, by design. */
+const fromPasswordError = (error: { code?: string; status?: number; message?: string; name?: string }): AppError => {
+  if (error.code === 'invalid_credentials' || /invalid login credentials/i.test(error.message ?? '')) {
+    return new AppError('code', MESSAGES.badPassword, { code: error.code ?? null });
+  }
+  return fromAuthError(error);
+};
+
 export const createSupabaseBackend = async (url: string, publishableKey: string): Promise<Backend> => {
   const storageKey = authKey(url);
   const client = createClient<Database>(url, publishableKey, {
@@ -188,6 +216,26 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
 
   const userOf = (user: { id: string; email?: string | null } | null | undefined): AuthUser | null =>
     user ? { id: user.id, email: user.email ?? '' } : null;
+
+  /** The demonstration build's password sign-in (config.demoSignUp). */
+  const signInWithPassword = async (email: string, password: string): Promise<AuthUser> => {
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw fromPasswordError(error);
+    const user = userOf(data.user);
+    if (!user) throw new AppError('code', MESSAGES.badPassword);
+    return user;
+  };
+
+  /** The demonstration build's sign-up: the function makes the account and its Test data business, then this signs in. */
+  const signUp = async (email: string, password: string): Promise<AuthUser> => {
+    const { error } = await client.functions.invoke('demo-sign-up', { body: { email, password } });
+    if (error) {
+      const refusal = await fromSignUpRefusal(error);
+      // The account was made but its business wasn't: sign in anyway, and the session asks for it again (ensure).
+      if (refusal.code !== 'provision_failed') throw refusal;
+    }
+    return signInWithPassword(email, password);
+  };
 
   const tables = {
     count: async (table: 'clients' | 'invoices' | 'reminder_drafts' | 'imports' | 'activity_log' | 'attention_items' | 'memberships', businessId: string) => {
@@ -242,6 +290,7 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
         if (!user) throw new AppError('code', badLinkMessage());
         return user;
       },
+      ...(config.demoSignUp ? { signUp, signInWithPassword } : {}),
       async signOut() {
         // Forget the session on this device first. supabase-js keeps it when it can't refresh an expired token
         // before signing out (offline), which would leave a shared phone signed in (Engineering review).
@@ -265,6 +314,23 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
             });
             if (error) throw await fromDraftingRefusal(error);
             return { drafted: data?.drafted ?? 0, claude: data?.claude === true };
+          },
+        }
+      : {}),
+
+    ...(config.demoSignUp
+      ? {
+          // A demonstration account with no business gets its Test data business back (demo-sign-up, "ensure").
+          async ensureDemoBusiness(): Promise<boolean> {
+            await ensureSession();
+            const { data, error } = await client.functions.invoke<{ business?: string }>('demo-sign-up', { body: { action: 'ensure' } });
+            if (error) {
+              const refusal = await fromSignUpRefusal(error);
+              // An account made some other way: it waits for an invitation, as before.
+              if (refusal.code === 'not_demo') return false;
+              throw refusal;
+            }
+            return data?.business === 'created' || data?.business === 'exists';
           },
         }
       : {}),

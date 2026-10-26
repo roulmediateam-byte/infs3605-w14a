@@ -2,6 +2,8 @@
 // screen leads with the code, because phones often open email links in the email app's own browser (TRD, Identity).
 // Where the email carries only a link (config.signInEmail "link": Supabase's built-in email on a free project), the
 // screen leads with the link instead and takes it pasted, or the address of the page it opened, on this device.
+// The demonstration build (config.demoSignUp) has no email at all: anyone creates an account with a made-up email and
+// a password instead (PasswordSignIn.tsx).
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { config } from '../app/config.ts';
 import { useBackend, useSession } from '../app/session.tsx';
@@ -11,6 +13,7 @@ import type { AuthUser, PreviewStorage } from '../backend/types.ts';
 import { KEYS, readItem, writeItem } from '../lib/storage.ts';
 import { BrandFrame } from '../ui/BrandFrame.tsx';
 import { Banner, Button, FormError, PageTitle, TextField } from '../ui/controls.tsx';
+import { firstPasswordMode, PasswordSignIn, usesPasswordSignIn, type PasswordMode } from './PasswordSignIn.tsx';
 
 const RESEND_SECONDS = 60;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -360,6 +363,11 @@ export const CodeSignIn = ({
 export const SignInScreen = ({ next }: { next: string | null }) => {
   const { signedIn, notice } = useSession();
   const backend = useBackend();
+  const passwordSignIn = usesPasswordSignIn(backend);
+  const [mode, setMode] = useState<PasswordMode>(firstPasswordMode);
+  // With a password, the tabs below name the action, so the heading doesn't repeat it.
+  const title = !passwordSignIn ? 'Sign in' : mode === 'create' ? 'Try Payprentice' : 'Welcome back';
+  const documentTitle = passwordSignIn && mode === 'create' ? 'Create an account' : 'Sign in';
   // An emailed link that had expired or was used lands here: say so once (App Flow, flow rule 5: no dead ends).
   const [linkProblem] = useState(() => backend.auth.takeLinkProblem?.() ?? null);
   useEffect(() => {
@@ -370,7 +378,7 @@ export const SignInScreen = ({ next }: { next: string | null }) => {
   return (
     <BrandFrame>
       <div className="stack-lg">
-        <PageTitle documentTitle="Sign in">Sign in</PageTitle>
+        <PageTitle documentTitle={documentTitle}>{title}</PageTitle>
         {notice ? <Banner>{notice}</Banner> : null}
         {linkProblem ? (
           <Banner tone="warning" role="alert">
@@ -390,7 +398,11 @@ export const SignInScreen = ({ next }: { next: string | null }) => {
             </p>
           </>
         ) : null}
-        <CodeSignIn onSignedIn={(user) => signedIn(user)} autoFocus={!backend.preview} quietSubmit={Boolean(backend.preview)} />
+        {passwordSignIn ? (
+          <PasswordSignIn mode={mode} onModeChange={setMode} onSignedIn={(user) => signedIn(user)} />
+        ) : (
+          <CodeSignIn onSignedIn={(user) => signedIn(user)} autoFocus={!backend.preview} quietSubmit={Boolean(backend.preview)} />
+        )}
       </div>
     </BrandFrame>
   );

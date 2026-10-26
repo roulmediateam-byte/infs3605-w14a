@@ -328,6 +328,11 @@ export interface Backend {
    * (supabase/functions/demo-weekly-run). Absent in every other build.
    */
   runDraftingNow?(businessId: string): Promise<DraftingRunResult>;
+  /**
+   * The demonstration build's sign-up only: gives a signed-in demonstration account its own Test data business if it
+   * has none (supabase/functions/demo-sign-up, "ensure"). True when it has one now. Absent in every other build.
+   */
+  ensureDemoBusiness?(): Promise<boolean>;
   auth: {
     currentUser(): Promise<AuthUser | null>;
     onChange(listener: (event: AuthEvent, user: AuthUser | null) => void): () => void;
@@ -337,6 +342,10 @@ export interface Backend {
     signInWithLink?(pasted: string): Promise<AuthUser>;
     /** Why the emailed sign-in link the page opened with didn't work, once; null if it worked or there was none. */
     takeLinkProblem?(): string | null;
+    /** The demonstration build's sign-up only: a new account with a made-up email and a password, then signed in. */
+    signUp?(email: string, password: string): Promise<AuthUser>;
+    /** The demonstration build's sign-up only: sign in with the email and password the account was made with. */
+    signInWithPassword?(email: string, password: string): Promise<AuthUser>;
     /** Forgets the session on this device, whatever the network does. */
     signOut(): Promise<void>;
   };

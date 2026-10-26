@@ -61,7 +61,8 @@ After a migration changes a table or function, regenerate the database types wit
 | `VITE_SUPPORT_EMAIL` | Where "Contact the team" under More sends email. Empty shows "Contact the team in your usual team channel" |
 | `VITE_HIDE_SCREENS` | Screens to leave out of the navigation, for example `invoices,clients,settings` for the demonstration build until they pass their tests |
 | `VITE_SIGN_IN_EMAIL` | `link` when the project's sign-in email holds only a link: Supabase's built-in email on a new free project, whose templates can't change without custom SMTP. Sign-in then leads with the link and takes it pasted, or the address of the page it opened. Empty or `code`: the 6-digit code first |
-| `VITE_DEMO_TOOLS` | `on` in the demonstration build only: the owner of a Test data business gets "Try the Week 7 demo" on Home and "Run it now" under More, which run Sunday's drafting through the Edge Function `demo-weekly-run` |
+| `VITE_DEMO_TOOLS` | `on` in the demonstration build only: the owner of a Test data business gets "Try the Week 7 demo" on Home and "Run it now" under More, which run Sunday's drafting through the Edge Function `demo-weekly-run`, and "Use the Week 7 demonstration file" on Import, built from the business's own invoices |
+| `VITE_DEMO_SIGN_UP` | `on` in the demonstration build only: sign-in becomes "Create an account" or "Sign in" with a made-up email (ending in `.test`) and a password, and each new account gets its own copy of the Test data business, through the Edge Function `demo-sign-up` (docs/runbook.md, "Week 7 demonstration"). No email is sent |
 | `BASE_PATH` | Where the build is served, for example `/getpaid-apprentice/` on GitHub Pages |
 | `SUB_APPS` | Builds published under this one (`demo/`), which the service worker and the 404 page leave alone |
 | `VITE_BACKEND=preview` | The in-browser preview below, instead of Supabase |

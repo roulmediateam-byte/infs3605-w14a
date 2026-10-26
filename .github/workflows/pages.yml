@@ -97,6 +97,9 @@ jobs:
           VITE_SIGN_IN_EMAIL: ${{ vars.SIGN_IN_EMAIL }}
           # "Run it now" for the owner of a Test data business (supabase/functions/demo-weekly-run).
           VITE_DEMO_TOOLS: 'on'
+          # "Create an account" with a made-up email and a password, each with its own Test data business
+          # (supabase/functions/demo-sign-up; deploy it to the dev project first).
+          VITE_DEMO_SIGN_UP: 'on'
         run: |
           npx vite build --outDir ../site/demo --emptyOutDir
           rm -f ../site/demo/404.html

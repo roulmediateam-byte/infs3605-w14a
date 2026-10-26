@@ -32,6 +32,9 @@ run(['vite', 'build', '--outDir', 'site-e2e/demo', '--emptyOutDir'], {
   ...common,
   BASE_PATH: `${PAGES_BASE}demo/`,
   VITE_HIDE_SCREENS: 'invoices,clients,settings',
+  // As pages.yml builds it: "Run it now", and sign-up with a made-up email and a password.
+  VITE_DEMO_TOOLS: 'on',
+  VITE_DEMO_SIGN_UP: 'on',
 });
 // As in pages.yml: one 404.html for the whole site, which routes demo/ addresses to the demonstration build.
 rmSync(path.join(web, 'site-e2e', 'demo', '404.html'), { force: true });

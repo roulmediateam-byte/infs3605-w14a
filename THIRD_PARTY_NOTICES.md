@@ -9,8 +9,9 @@ The web app's look (web/src/styles.css, from the visual refresh of Fri 23 Oct 20
 | The corner-radius scale, derived from one `--radius: 0.625rem` | `:root` in `web/src/styles.css` | [shadcn/ui](https://github.com/shadcn-ui/ui) | MIT |
 | The resting, floating and dialog shadows | `:root` in `web/src/styles.css` | [Primer Primitives](https://github.com/primer/primitives) | MIT |
 | Icons, imported one by one by name | `lucide-react` 1.57.0 (a dependency since the app was built) | [Lucide](https://github.com/lucide-icons/lucide) | ISC, with MIT for the icons that came from Feather |
+| The logo's wordmark, outlined from Inter Display Bold (Inter 4.0), with the i's dot redrawn | `docs/brand/svg/payprentice-wordmark-*.svg` and the lockups | [rsms/inter](https://github.com/rsms/inter) | SIL Open Font License 1.1, which allows outlining glyphs into artwork such as a logo |
 
-The action blue `#1f4fd1`, the field edge `#7b8494` and the app's mark (`web/src/ui/AppMark.tsx`, `web/public/icon.svg`) are the team's own.
+The action blue `#1f4fd1`, the field edge `#7b8494` and the app's mark, the steel-square tick (`web/src/ui/AppMark.tsx`, `web/public/icon.svg`, `docs/brand/`), are the team's own.
 
 ## Inter
 

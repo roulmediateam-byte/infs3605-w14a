@@ -3034,10 +3034,9 @@ form + .settings-group {
   height: 40px;
 }
 
-/* The mark sits on the gradient in a white ring, so its blue square never melts into the panel. */
+/* On the gradient the mark is its white tile, lifted by a soft shadow in the panel's own indigo. */
 .sign-in-brand .brand svg {
-  border-radius: 22%;
-  box-shadow: 0 0 0 2px rgb(255 255 255 / 0.9);
+  filter: drop-shadow(0 1px 2px rgb(30 27 75 / 0.25));
 }
 
 .sign-in-pitch {

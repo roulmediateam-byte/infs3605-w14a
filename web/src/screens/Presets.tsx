@@ -86,7 +86,7 @@ export const PresetsSection = () => {
       {list.length > 0 ? (
         <ul className="list">
           {list.map((preset) => (
-            <li key={preset.id} className="list-row">
+            <li key={preset.id} className="list-row preset-row">
               <div className="list-main">
                 <span className="list-title">{preset.name}</span>
                 <span className="t-caption">

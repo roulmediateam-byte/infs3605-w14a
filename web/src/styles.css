@@ -3179,3 +3179,26 @@ form + .settings-group {
   border-left: 4px solid var(--apprentice);
   padding-left: 12px;
 }
+.preset-row .list-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.block-col {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+}
+.promise-row button.list-main {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  font: inherit;
+  gap: 2px;
+  padding: 0;
+  text-align: left;
+}

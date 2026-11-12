@@ -62,8 +62,9 @@ const functionRefusal = async (error: unknown): Promise<AppError> => {
   const context = (error as { context?: Response } | null)?.context;
   if (context && typeof context.json === 'function') {
     try {
-      const body = (await context.clone().json()) as { message?: string };
-      if (body.message) return new AppError('rule', body.message);
+      const body = (await context.clone().json()) as { error?: string; message?: string };
+      const said = body.error ?? body.message;
+      if (said) return new AppError('rule', said);
     } catch {
       // Not JSON: fall through to the general message.
     }

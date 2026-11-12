@@ -133,7 +133,7 @@ export const PlansScreen = () => {
       <PageTitle documentTitle="Plans and billing">Plans and billing</PageTitle>
       <StatusCard billing={b} />
       {cardNeeded ? (
-        <div className="stack-sm">
+        <div className="stack-sm block-col">
           <Button variant="primary" onClick={addCard} busy={busy === 'checkout'} busyLabel="Opening Stripe…">
             <CreditCard size={18} aria-hidden="true" /> Add a card with Stripe (test mode)
           </Button>
@@ -183,7 +183,7 @@ export const PlansScreen = () => {
       </section>
 
       {owner && (b.phase === 'intro' || b.phase === 'full') ? (
-        <section className="stack-sm">
+        <section className="stack-sm block-col">
           <Button variant="quiet" onClick={cancel} busy={busy === 'cancel'} busyLabel="Cancelling…">
             Cancel my plan
           </Button>

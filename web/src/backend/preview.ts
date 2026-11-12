@@ -27,7 +27,10 @@ import type {
   AuthEvent,
   AuthUser,
   Backend,
+  Billing,
   Briefing,
+  Role,
+  TonePreset,
   Business,
   Client,
   ConfirmSentResult,
@@ -647,7 +650,7 @@ export const createPreviewBackend = (
       const rows = await list<Business>(
         `select id, name, owner_name, sign_off, reply_to_email, overdue_threshold_days, cooldown_days, briefing_weekday, briefing_time,
                 checker_may_send, style_note, example_reminder, call_first_threshold_cents, xero_reminders, column_mapping, is_test_data,
-                delete_after, created_at
+                delete_after, auto_firm_after, created_at
            from public.businesses where id = $1::uuid`,
         [businessId],
       );
@@ -655,13 +658,13 @@ export const createPreviewBackend = (
       return rows[0];
     },
     members: (businessId) =>
-      list<Member>('select id, user_id, invited_email, display_name, role, status from public.memberships where business_id = $1::uuid order by invited_at', [
+      list<Member>('select id, user_id, invited_email, display_name, role, status, join_code, join_code_expires_at from public.memberships where business_id = $1::uuid order by invited_at', [
         businessId,
       ]),
     invoices: (businessId) => list<InvoiceListRow>('select * from public.invoice_list where business_id = $1::uuid order by due_date, invoice_number', [businessId]),
     clients: (businessId) =>
       list<Client>(
-        'select id, name, contact_name, email, tone, client_group, paused, paused_at from public.clients where business_id = $1::uuid order by name',
+        'select id, name, contact_name, email, tone, client_group, paused, paused_at, preset_id from public.clients where business_id = $1::uuid order by name',
         [businessId],
       ),
     drafts: (businessId, statuses) =>
@@ -704,6 +707,49 @@ export const createPreviewBackend = (
         "select period_key, status, started_at, finished_at from public.job_runs where business_id = $1::uuid and job = 'weekly_run' and period_key >= $2",
         [businessId, sinceDate],
       ),
+    getBilling: (businessId) => call<Billing>('get_billing', [['p_business_id', businessId, 'uuid']]),
+    choosePlan: (businessId, plan) =>
+      call<Billing>('choose_plan', [
+        ['p_business_id', businessId, 'uuid'],
+        ['p_plan', plan, 'public.plan_id'],
+      ]),
+    cancelPlan: (businessId) => call<Billing>('cancel_plan', [['p_business_id', businessId, 'uuid']]),
+    resumePlan: (businessId) => call<Billing>('resume_plan', [['p_business_id', businessId, 'uuid']]),
+    joinWithCode: (code) => call<{ business_id: string; role: Role }>('join_with_code', [['p_code', code, 'text']]),
+    createBusiness: (name, ownerName, replyToEmail) =>
+      call<string>('create_business', [
+        ['p_name', name, 'text'],
+        ['p_owner_name', ownerName, 'text'],
+        ['p_reply_to_email', replyToEmail, 'text'],
+      ]),
+    addSampleInvoices: (businessId) => call<{ invoices: number; drafts: number }>('add_sample_invoices', [['p_business_id', businessId, 'uuid']]),
+    recordPromise: (invoiceId, promisedOn, note) =>
+      call<{ promised_on: string; drafts_cancelled: number }>('record_promise', [
+        ['p_invoice_id', invoiceId, 'uuid'],
+        ['p_promised_on', promisedOn, 'date'],
+        ['p_note', note || undefined, 'text'],
+      ]),
+    clearPromise: async (invoiceId) => {
+      await call('clear_promise', [['p_invoice_id', invoiceId, 'uuid']]);
+    },
+    presets: (businessId) =>
+      list<TonePreset>('select id, name, tone, note, client_group from public.tone_presets where business_id = $1::uuid order by name', [businessId]),
+    savePreset: (businessId, preset) =>
+      call<string>('save_preset', [
+        ['p_business_id', businessId, 'uuid'],
+        ['p_name', preset.name, 'text'],
+        ['p_tone', preset.tone, 'public.tone'],
+        ['p_note', preset.note || undefined, 'text'],
+        ['p_client_group', preset.client_group || undefined, 'public.client_group'],
+      ]),
+    deletePreset: async (presetId) => {
+      await call('delete_preset', [['p_preset_id', presetId, 'uuid']]);
+    },
+    applyPreset: (presetId, clientIds) =>
+      call<number>('apply_preset', [
+        ['p_preset_id', presetId, 'uuid'],
+        ['p_client_ids', clientIds, 'uuid[]'],
+      ]),
     async recordCounts(businessId) {
       return one<Record<string, number>>(
         `select json_build_object(

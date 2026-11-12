@@ -1,6 +1,11 @@
 // UI-10 Activity log (FR-21): who did what, and when. A read-only feed grouped by day, newest first, in Sydney
 // time, each entry a sentence. Filter by action, person, date or invoice; /log?invoice=1051 opens filtered.
 import {
+  BadgeDollarSign,
+  CreditCard,
+  Handshake,
+  SlidersHorizontal,
+  TrendingUp,
   Ban,
   Building2,
   CalendarCheck,
@@ -68,6 +73,16 @@ const LOG_ICON: Record<ActivityAction, { icon: LucideIcon; tone: TileTone }> = {
   member_removed: { icon: UserMinus, tone: 'neutral' },
   attention_dismissed: { icon: Check, tone: 'neutral' },
   data_exported: { icon: Download, tone: 'neutral' },
+  plan_changed: { icon: BadgeDollarSign, tone: 'info' },
+  plan_cancelled: { icon: BadgeDollarSign, tone: 'neutral' },
+  plan_resumed: { icon: BadgeDollarSign, tone: 'info' },
+  payment_recorded: { icon: CreditCard, tone: 'success' },
+  promise_recorded: { icon: Handshake, tone: 'success' },
+  promise_cleared: { icon: Handshake, tone: 'neutral' },
+  preset_saved: { icon: SlidersHorizontal, tone: 'neutral' },
+  preset_deleted: { icon: SlidersHorizontal, tone: 'neutral' },
+  preset_applied: { icon: SlidersHorizontal, tone: 'neutral' },
+  tone_stepped_up: { icon: TrendingUp, tone: 'apprentice' },
 };
 
 const sinceDate = (filter: DateFilter): string | null => {

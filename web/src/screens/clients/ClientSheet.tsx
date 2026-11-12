@@ -12,6 +12,7 @@ import { pluralise, TONE_LABEL } from '../../lib/words.ts';
 import { Button, Chip, Choices, ErrorPanel, FormError, Skeleton, TextField } from '../../ui/controls.tsx';
 import { NoData } from '../../ui/QueryState.tsx';
 import { Sheet } from '../../ui/Sheet.tsx';
+import { usePresets } from '../Presets.tsx';
 
 const TONES: { value: Tone; label: string }[] = [
   { value: 'gentle', label: 'Gentle' },
@@ -160,6 +161,7 @@ export const ClientSheet = ({ clientId, onClose }: { clientId: string; onClose: 
             </h3>
             <Choices legend="Tone for this client" hideLegend segmented name={`tone-${client.id}`} value={pendingTone ?? client.tone} options={TONES} onChange={(tone) => void setTone(tone)} />
             <p className="t-caption">New drafts use it from the next run; waiting drafts keep their wording.</p>
+            <PresetPicker clientId={client.id} presetId={client.preset_id} />
           </section>
         ) : null}
 
@@ -211,5 +213,38 @@ export const ClientSheet = ({ clientId, onClose }: { clientId: string; onClose: 
         </p>
       </Sheet>
     </Sheet>
+  );
+};
+
+/** Give the client a saved tone preset; the client then remembers it (Settings, Tone presets). */
+const PresetPicker = ({ clientId, presetId }: { clientId: string; presetId: string | null }) => {
+  const backend = useBackend();
+  const presets = usePresets();
+  const { run, busy } = useAction();
+  const { show } = useMessages();
+  const list = presets.data ?? [];
+  const current = list.find((p) => p.id === presetId);
+  if (list.length === 0) return <p className="t-caption">Save tone presets in Settings to reuse them across clients.</p>;
+  return (
+    <div className="stack-sm">
+      {current ? <p className="t-secondary">Remembers the preset "{current.name}".</p> : null}
+      <div className="row-wrap">
+        {list.map((preset) => (
+          <Button
+            key={preset.id}
+            variant={preset.id === presetId ? 'primary' : 'secondary'}
+            busy={busy === `apply-${preset.id}`}
+            busyLabel="Saving…"
+            onClick={() =>
+              void run(`apply-${preset.id}`, () => backend.applyPreset(preset.id, [clientId]), { refresh: 'wait' }).then((result) =>
+                show(result.ok ? { text: `Saved. This client remembers "${preset.name}" (${TONE_LABEL[preset.tone]}).` } : { text: result.error.message, tone: 'critical' }),
+              )
+            }
+          >
+            {preset.name}: {TONE_LABEL[preset.tone]}
+          </Button>
+        ))}
+      </div>
+    </div>
   );
 };

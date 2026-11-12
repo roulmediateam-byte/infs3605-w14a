@@ -2,7 +2,7 @@
 // "Contact the team" sits in the same place on every screen's More (WCAG 3.2.6) and sends the business's code only.
 // The preview adds Sunday's drafting run at the top, the demo's key step, and "Reset demo data" at the bottom. The
 // demonstration build adds the same drafting run for the owner of a Test data business (config.demoTools).
-import { Building2, ChevronRight, FlaskConical, Keyboard, LogOut, MessageCircle, RotateCcw, ScrollText, Settings, Upload } from 'lucide-react';
+import { BadgeDollarSign, Building2, ChevronRight, CirclePlus, FlaskConical, Keyboard, LogOut, MessageCircle, RotateCcw, ScrollText, Settings, Upload } from 'lucide-react';
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { config, screenEnabled } from '../app/config.ts';
 import { useMessages } from '../app/messages.tsx';
@@ -157,6 +157,16 @@ export const MoreScreen = () => {
         <li>
           <Link to="import">
             <IconTile icon={Upload} tone="action" size="sm" /> Import invoices <ChevronRight className="chev" size={20} strokeWidth={2} aria-hidden="true" />
+          </Link>
+        </li>
+        <li>
+          <Link to="plans">
+            <IconTile icon={BadgeDollarSign} tone="action" size="sm" /> Plans and billing <ChevronRight className="chev" size={20} strokeWidth={2} aria-hidden="true" />
+          </Link>
+        </li>
+        <li>
+          <Link to="setup">
+            <IconTile icon={CirclePlus} tone="action" size="sm" /> Set up or join a business <ChevronRight className="chev" size={20} strokeWidth={2} aria-hidden="true" />
           </Link>
         </li>
         <li>

@@ -36,7 +36,9 @@ import {
 import { Link } from '../app/router.tsx';
 import { useBackend, useBusiness } from '../app/session.tsx';
 import type { AttentionEntry, Business, WeeklyRun } from '../backend/types.ts';
-import { addDays, formatDate, sydneyClock, thisWeeksSunday } from '../lib/dates.ts';
+import { addDays, formatDate, formatDateLong, sydneyClock, thisWeeksSunday } from '../lib/dates.ts';
+import { phaseLine } from '../lib/plans.ts';
+import { useBilling } from './Plans.tsx';
 import { formatAud } from '../lib/money.ts';
 import { homeCard, largestFirst, nextToSend } from '../lib/review-session.ts';
 import { pendingSends } from '../lib/storage.ts';
@@ -457,6 +459,34 @@ export const HomeScreen = () => {
         )}
       </section>
 
+      {(b.promises ?? []).length > 0 ? (
+        <section aria-labelledby="promises-heading" className="stack-sm">
+          <h2 className="t-heading" id="promises-heading">
+            Promised to pay
+          </h2>
+          <ul className="list">
+            {(b.promises ?? []).map((promise) => (
+              <li key={promise.invoice_id} className="list-row promise-row">
+                <button type="button" className="list-main" onClick={() => setInvoiceId(promise.invoice_id)}>
+                  <span className="list-title">
+                    {promise.client_name}, {formatAud(promise.amount_due_cents)}
+                  </span>
+                  <span className="t-caption">
+                    Invoice {promise.invoice_number}: {promise.missed ? `missed, promised by ${formatDateLong(promise.promised_on)}` : `by ${formatDateLong(promise.promised_on)}`}
+                  </span>
+                </button>
+                <Chip tone={promise.missed ? 'overdue' : 'paid'} icon={null}>
+                  {promise.missed ? 'Missed' : 'Waiting'}
+                </Chip>
+              </li>
+            ))}
+          </ul>
+          <p className="t-caption">No reminders are drafted for a promise until its date passes.</p>
+        </section>
+      ) : null}
+
+      <PlanLine />
+
       {b.paused_clients.length > 0 ? (
         <p className="t-secondary">
           Paused:{' '}
@@ -503,5 +533,16 @@ export const HomeScreen = () => {
       {invoiceId ? <InvoiceSheet invoiceId={invoiceId} onClose={() => setInvoiceId(null)} /> : null}
       {clientId ? <ClientSheet clientId={clientId} onClose={() => setClientId(null)} /> : null}
     </div>
+  );
+};
+
+/** One line about the plan on Home, linking to Plans and billing. */
+const PlanLine = () => {
+  const billing = useBilling();
+  if (!billing.data) return null;
+  return (
+    <p className="t-secondary">
+      <Link to="plans">{billing.data.plan_name ? `${billing.data.plan_name} plan` : 'Choose a plan'}</Link>: {phaseLine(billing.data)}
+    </p>
   );
 };

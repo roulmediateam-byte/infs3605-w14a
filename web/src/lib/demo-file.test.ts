@@ -8,9 +8,9 @@ import { week7Csv } from './demo-file.ts';
 const TODAY = '2026-10-28';
 
 const clients: Client[] = [
-  { id: 'c1', name: 'Bayside Builders (Test data)', contact_name: 'Sam', email: 'accounts@bayside-builders.example', tone: 'gentle', client_group: 'head_contractor', paused: false, paused_at: null },
-  { id: 'c2', name: 'Northshore Homes (Test data)', contact_name: 'Priya', email: 'pay@northshore-homes.example', tone: 'standard', client_group: 'head_contractor', paused: false, paused_at: null },
-  { id: 'c4', name: 'Coastline Fitouts (Test data)', contact_name: null, email: null, tone: 'standard', client_group: 'other', paused: false, paused_at: null },
+  { id: 'c1', name: 'Bayside Builders (Test data)', contact_name: 'Sam', email: 'accounts@bayside-builders.example', tone: 'gentle', client_group: 'head_contractor', paused: false, paused_at: null, preset_id: null },
+  { id: 'c2', name: 'Northshore Homes (Test data)', contact_name: 'Priya', email: 'pay@northshore-homes.example', tone: 'standard', client_group: 'head_contractor', paused: false, paused_at: null, preset_id: null },
+  { id: 'c4', name: 'Coastline Fitouts (Test data)', contact_name: null, email: null, tone: 'standard', client_group: 'other', paused: false, paused_at: null, preset_id: null },
 ];
 
 const invoice = (number: string, clientId: string, issue: number, due: number, cents: number, status: InvoiceListRow['status'] = 'open'): InvoiceListRow => ({
@@ -32,6 +32,8 @@ const invoice = (number: string, clientId: string, issue: number, due: number, c
   reminders_sent_count: 0,
   days_past_due: -due,
   display_status: 'overdue',
+  promised_on: null,
+  promise_note: null,
 });
 
 describe('week7Csv', () => {

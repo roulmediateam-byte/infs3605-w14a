@@ -6,7 +6,7 @@ import { useOnline } from '../../app/online.ts';
 import { useAction, useActivity, useClients, useInvoices, useMembers } from '../../app/queries.ts';
 import { useBackend, useBusiness } from '../../app/session.tsx';
 import { describe } from '../../lib/activity.ts';
-import { formatDate, formatDay, formatTime, sydneyDate } from '../../lib/dates.ts';
+import { addDays, formatDate, formatDateLong, formatDay, formatTime, sydneyDate } from '../../lib/dates.ts';
 import { formatAud } from '../../lib/money.ts';
 import { invoiceChip, pluralise } from '../../lib/words.ts';
 import { Button, Chip, ErrorPanel, FormError, Skeleton, TextField } from '../../ui/controls.tsx';
@@ -127,6 +127,8 @@ export const InvoiceSheet = ({ invoiceId, onClose }: { invoiceId: string; onClos
             </section>
           ) : null}
 
+          {invoice.status === 'open' && canAct ? <PromiseToPay invoiceId={invoice.id} promisedOn={invoice.promised_on} note={invoice.promise_note} /> : null}
+
           {invoice.status === 'paid' && canAct ? (
             <div className="stack-sm">
               <Button variant="secondary" busy={busy === 'undo'} busyLabel="Saving…" unavailable={!online} onClick={() => void undo()}>
@@ -162,5 +164,78 @@ export const InvoiceSheet = ({ invoiceId, onClose }: { invoiceId: string; onClos
         </div>
       )}
     </Sheet>
+  );
+};
+
+/**
+ * The client promised to pay by a date: the waiting reminder is cancelled and no reminder is drafted until then. If
+ * the date passes unpaid, the briefing says the promise was missed and Sunday's run drafts again.
+ */
+const PromiseToPay = ({ invoiceId, promisedOn, note }: { invoiceId: string; promisedOn: string | null; note: string | null }) => {
+  const backend = useBackend();
+  const { run, busy } = useAction();
+  const { show } = useMessages();
+  const online = useOnline();
+  const today = sydneyDate();
+  const [date, setDate] = useState(addDays(today, 7));
+  const [text, setText] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  if (promisedOn) {
+    const missed = promisedOn < today;
+    return (
+      <section className="panel stack-sm promise-row" aria-labelledby="promise-heading">
+        <h3 className="t-subheading" id="promise-heading">
+          {missed ? 'Promise missed' : 'Promised to pay'}
+        </h3>
+        <p>
+          {missed ? 'The client promised to pay by ' : 'The client promised to pay by '}
+          <strong>{formatDateLong(promisedOn)}</strong>
+          {note ? `: "${note}"` : '.'}
+        </p>
+        <p className="t-caption">{missed ? "Reminders start again from Sunday's run." : 'No reminder is drafted until then.'}</p>
+        <Button
+          variant="quiet"
+          busy={busy === 'clear-promise'}
+          busyLabel="Clearing…"
+          unavailable={!online}
+          onClick={() =>
+            void run('clear-promise', () => backend.clearPromise(invoiceId)).then((result) =>
+              show(result.ok ? { text: 'Promise cleared. Sunday’s run can draft a reminder again.' } : { text: result.error.message, tone: 'critical' }),
+            )
+          }
+        >
+          Clear the promise
+        </Button>
+      </section>
+    );
+  }
+  return (
+    <section className="panel stack-sm" aria-labelledby="promise-heading">
+      <h3 className="t-subheading" id="promise-heading">
+        Promised to pay?
+      </h3>
+      <p className="t-caption">If the client says when they'll pay, record it. Reminders stop until that date, and start again if it passes.</p>
+      <TextField label="They'll pay by" type="date" value={date} min={today} max={addDays(today, 60)} onChange={(e) => setDate(e.target.value)} error={error} />
+      <TextField label="What they said (optional)" hint="Up to 200 characters, for example: Paying Friday after their progress claim." value={text} maxLength={200} onChange={(e) => setText(e.target.value)} />
+      <Button
+        variant="secondary"
+        busy={busy === 'promise'}
+        busyLabel="Saving…"
+        unavailable={!online}
+        onClick={() =>
+          void run('promise', () => backend.recordPromise(invoiceId, date, text.trim() || undefined)).then((result) => {
+            if (!result.ok) {
+              setError(result.error.message);
+              return;
+            }
+            setError(null);
+            const cancelled = result.value.drafts_cancelled;
+            show({ text: `Saved. No reminders until ${formatDateLong(date)}.${cancelled ? ' The waiting draft was cancelled.' : ''}` });
+          })
+        }
+      >
+        Record the promise
+      </Button>
+    </section>
   );
 };

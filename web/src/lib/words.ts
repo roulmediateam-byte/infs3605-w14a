@@ -9,7 +9,7 @@ import { daysBetween, formatDate, overdueText, sydneyDate } from './dates.ts';
 export type ChipTone = 'overdue' | 'due-soon' | 'paid' | 'neutral' | 'ready' | 'info' | 'apprentice' | 'selected';
 
 export type Tone = 'gentle' | 'standard' | 'firm';
-export type CancelReason = 'invoice_paid' | 'invoice_closed' | 'amount_changed' | 'due_date_changed' | 'client_paused' | 'email_missing' | 'superseded';
+export type CancelReason = 'invoice_paid' | 'invoice_closed' | 'amount_changed' | 'due_date_changed' | 'client_paused' | 'email_missing' | 'superseded' | 'promised';
 export type RejectReason = 'already_paid' | 'wrong_amount_or_invoice' | 'will_call' | 'wrong_tone' | 'other';
 
 export const TONE_LABEL: Record<Tone, string> = { gentle: 'Gentle', standard: 'Standard', firm: 'Firm' };
@@ -23,6 +23,7 @@ export const CANCEL_REASON: Record<CancelReason, string> = {
   client_paused: 'client paused',
   email_missing: 'no email address',
   superseded: "replaced by this week's draft",
+  promised: 'the client promised to pay',
 };
 
 /** What Review says when a draft gives way at approval (BR-05, AT-03). */
@@ -34,6 +35,7 @@ export const CANCELLED_IN_PLACE: Record<CancelReason, string> = {
   client_paused: 'Cancelled: client paused.',
   email_missing: "Cancelled: the client has no email address. It's under Needs attention.",
   superseded: "Cancelled: replaced by this week's draft.",
+  promised: 'Cancelled: the client promised to pay by a date. Reminders start again if it passes.',
 };
 
 export const REJECT_REASONS: { value: RejectReason; label: string }[] = [

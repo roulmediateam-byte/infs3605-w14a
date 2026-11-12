@@ -15,6 +15,8 @@ import { firstName, pluralise } from '../lib/words.ts';
 import { Banner, Button, Chip, Choices, FormError, IconTile, LoadingBlock, PageTitle, TextAreaField, TextField } from '../ui/controls.tsx';
 import { useInsetRef } from '../ui/insets.ts';
 import { XeroOffSteps } from '../ui/XeroSteps.tsx';
+import { Link } from '../app/router.tsx';
+import { PresetsSection } from './Presets.tsx';
 import { NoData } from '../ui/QueryState.tsx';
 import { Sheet } from '../ui/Sheet.tsx';
 
@@ -190,7 +192,7 @@ export const SettingsScreen = () => {
       setInviteErrors(result.error.kind === 'rule' ? { email: result.error.message } : { form: result.error.message });
       return;
     }
-    show({ text: `Invitation saved for ${firstName(invite.name)}. Ask the team to send their sign-in email.` });
+    show({ text: `Invitation saved for ${firstName(invite.name)}. Give them the join code shown under Team.` });
     setInvite({ name: '', email: '' });
   };
 
@@ -374,6 +376,18 @@ export const SettingsScreen = () => {
         </div>
       </form>
 
+      <PresetsSection />
+
+      <section className="settings-group" aria-labelledby="g-plan">
+        <GroupTitle id="g-plan" icon={Gauge}>
+          Plan and billing
+        </GroupTitle>
+        <p className="t-secondary">Solo, Crew or Company, each 80% off for the first 3 months.</p>
+        <Link className="btn btn-secondary" to="plans">
+          See your plan
+        </Link>
+      </section>
+
       <section className="settings-group" aria-labelledby="g-team">
         <GroupTitle id="g-team" icon={Users}>
           Team
@@ -385,6 +399,28 @@ export const SettingsScreen = () => {
               <span className="list-title">{checker.display_name}</span>, {checker.invited_email}
             </p>
             <p className="t-caption">{checker.status === 'active' ? 'Checker, joined' : 'Checker, invited (not signed in yet)'}</p>
+            {checker.status === 'invited' && checker.join_code ? (
+              <div className="notice stack-sm">
+                <p>
+                  Join code: <strong className="join-code">{`${checker.join_code.slice(0, 4)}-${checker.join_code.slice(4)}`}</strong>
+                </p>
+                <p className="t-caption">
+                  {firstName(checker.display_name)} signs in, chooses "Join a business with a code" and types it.
+                  {checker.join_code_expires_at ? ` It works until ${formatDateLong(sydneyDate(new Date(checker.join_code_expires_at)))}.` : ''}
+                </p>
+                <Button
+                  variant="quiet"
+                  onClick={() =>
+                    void navigator.clipboard?.writeText(checker.join_code ?? '').then(
+                      () => show({ text: 'Join code copied.' }),
+                      () => show({ text: 'Copy the code by hand.', tone: 'info' }),
+                    )
+                  }
+                >
+                  Copy the code
+                </Button>
+              </div>
+            ) : null}
             <label className="check">
               <input type="checkbox" checked={b.checker_may_send} disabled={busy === 'may-send' || !online} onChange={(e) => void setCheckerMaySend(e.target.checked)} />
               <span>

@@ -10,6 +10,7 @@ import type {
   ApproveResult,
   AuthUser,
   Backend,
+  Billing,
   Briefing,
   Business,
   Client,
@@ -27,7 +28,9 @@ import type {
   OpenAttentionItem,
   QueueItem,
   RejectResult,
+  Role,
   SendPayload,
+  TonePreset,
   TrustSummary,
   WeeklyRun,
 } from './types.ts';
@@ -52,8 +55,25 @@ const check = <T>(response: PostgrestResponse<T>): T => {
 const DRAFT_COLUMNS =
   'id, invoice_id, status, source, tone_used, invoice_number_shown, amount_shown_cents, due_date_shown, edited, final_subject, final_body, approved_by, approver_role, approved_at, rejected_by, rejected_at, reject_reason, sent_confirmed_by, sent_confirmed_at, cancelled_at, cancel_reason, created_at';
 
+type Fn<N extends keyof Database['public']['Functions']> = Database['public']['Functions'][N]['Args'];
+
+/** An Edge Function's refusal as the plain-words message it sent, such as "Card payments aren't set up in this build yet." */
+const functionRefusal = async (error: unknown): Promise<AppError> => {
+  const context = (error as { context?: Response } | null)?.context;
+  if (context && typeof context.json === 'function') {
+    try {
+      const body = (await context.clone().json()) as { error?: string; message?: string };
+      const said = body.error ?? body.message;
+      if (said) return new AppError('rule', said);
+    } catch {
+      // Not JSON: fall through to the general message.
+    }
+  }
+  return new AppError('unknown', "That didn't work. Check your connection, then try again.");
+};
+
 const BUSINESS_COLUMNS =
-  'id, name, owner_name, sign_off, reply_to_email, overdue_threshold_days, cooldown_days, briefing_weekday, briefing_time, checker_may_send, style_note, example_reminder, call_first_threshold_cents, xero_reminders, column_mapping, is_test_data, delete_after, created_at';
+  'id, name, owner_name, sign_off, reply_to_email, overdue_threshold_days, cooldown_days, briefing_weekday, briefing_time, checker_may_send, style_note, example_reminder, call_first_threshold_cents, xero_reminders, column_mapping, is_test_data, delete_after, auto_firm_after, created_at';
 
 /** The preview build reports start-up progress; the real backend has nothing to start. */
 export const watchBoot = (_listener: (step: 'download' | 'start' | 'migrate' | 'ready') => void): void => undefined;
@@ -424,7 +444,7 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
     async members(businessId) {
       await ensureSession();
       return check(
-        await client.from('memberships').select('id, user_id, invited_email, display_name, role, status').eq('business_id', businessId).order('invited_at'),
+        await client.from('memberships').select('id, user_id, invited_email, display_name, role, status, join_code, join_code_expires_at').eq('business_id', businessId).order('invited_at'),
       ) as Member[];
     },
     async invoices(businessId) {
@@ -437,7 +457,7 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
       const rows = await readAll((from, to) =>
         client
           .from('clients')
-          .select('id, name, contact_name, email, tone, client_group, paused, paused_at')
+          .select('id, name, contact_name, email, tone, client_group, paused, paused_at, preset_id')
           .eq('business_id', businessId)
           .order('name')
           .range(from, to),
@@ -499,6 +519,62 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
           .gte('period_key', sinceDate),
       ) as WeeklyRun[];
     },
+    getBilling: (businessId) => rpc<Billing>('get_billing', { p_business_id: businessId } satisfies Fn<'get_billing'>),
+    choosePlan: (businessId, plan) => rpc<Billing>('choose_plan', { p_business_id: businessId, p_plan: plan } satisfies Fn<'choose_plan'>),
+    cancelPlan: (businessId) => rpc<Billing>('cancel_plan', { p_business_id: businessId } satisfies Fn<'cancel_plan'>),
+    resumePlan: (businessId) => rpc<Billing>('resume_plan', { p_business_id: businessId } satisfies Fn<'resume_plan'>),
+    async startCheckout(businessId, plan, returnTo) {
+      await ensureSession();
+      const { data, error } = await client.functions.invoke<{ url?: string }>('billing-checkout', {
+        body: { action: 'start', business_id: businessId, plan, return_to: returnTo },
+      });
+      if (error || !data?.url) throw await functionRefusal(error);
+      return { url: data.url };
+    },
+    async confirmCheckout(businessId, sessionId) {
+      await ensureSession();
+      const { data, error } = await client.functions.invoke<{ billing?: Billing }>('billing-checkout', {
+        body: { action: 'confirm', business_id: businessId, session_id: sessionId },
+      });
+      if (error || !data?.billing) throw await functionRefusal(error);
+      return data.billing;
+    },
+    async emailBriefingNow(businessId) {
+      await ensureSession();
+      const { data, error } = await client.functions.invoke<{ sent_to?: string }>('send-briefing', {
+        body: { action: 'send_now', business_id: businessId },
+      });
+      if (error || !data?.sent_to) throw await functionRefusal(error);
+      return { sent_to: data.sent_to };
+    },
+    joinWithCode: (code) => rpc<{ business_id: string; role: Role }>('join_with_code', { p_code: code } satisfies Fn<'join_with_code'>),
+    createBusiness: (name, ownerName, replyToEmail) =>
+      rpc<string>('create_business', { p_name: name, p_owner_name: ownerName, p_reply_to_email: replyToEmail } satisfies Fn<'create_business'>),
+    addSampleInvoices: (businessId) =>
+      rpc<{ invoices: number; drafts: number }>('add_sample_invoices', { p_business_id: businessId } satisfies Fn<'add_sample_invoices'>),
+    recordPromise: (invoiceId, promisedOn, note) =>
+      rpc<{ promised_on: string; drafts_cancelled: number }>('record_promise', {
+        p_invoice_id: invoiceId,
+        p_promised_on: promisedOn,
+        ...(note ? { p_note: note } : {}),
+      } satisfies Fn<'record_promise'>),
+    clearPromise: (invoiceId) => rpc<void>('clear_promise', { p_invoice_id: invoiceId } satisfies Fn<'clear_promise'>),
+    async presets(businessId) {
+      await ensureSession();
+      return check(
+        await client.from('tone_presets').select('id, name, tone, note, client_group').eq('business_id', businessId).order('name'),
+      ) as TonePreset[];
+    },
+    savePreset: (businessId, preset) =>
+      rpc<string>('save_preset', {
+        p_business_id: businessId,
+        p_name: preset.name,
+        p_tone: preset.tone,
+        ...(preset.note ? { p_note: preset.note } : {}),
+        ...(preset.client_group ? { p_client_group: preset.client_group } : {}),
+      } satisfies Fn<'save_preset'>),
+    deletePreset: (presetId) => rpc<void>('delete_preset', { p_preset_id: presetId } satisfies Fn<'delete_preset'>),
+    applyPreset: (presetId, clientIds) => rpc<number>('apply_preset', { p_preset_id: presetId, p_client_ids: clientIds } satisfies Fn<'apply_preset'>),
     async recordCounts(businessId) {
       await ensureSession();
       const names = ['clients', 'invoices', 'reminder_drafts', 'imports', 'activity_log', 'attention_items', 'memberships'] as const;

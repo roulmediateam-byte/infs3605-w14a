@@ -38,6 +38,8 @@ export interface Business {
   column_mapping: ColumnMapping | null;
   is_test_data: boolean;
   delete_after: string | null;
+  /** Firmer by itself: after this many unpaid reminders the weekly run moves a client one tone firmer. Null is off. */
+  auto_firm_after: number | null;
   created_at: string;
 }
 
@@ -48,6 +50,9 @@ export interface Member {
   display_name: string;
   role: Role;
   status: 'invited' | 'active' | 'removed';
+  /** The 8-character code the invited person can join with, for 7 days; null once used. */
+  join_code: string | null;
+  join_code_expires_at: string | null;
 }
 
 export interface BriefingInvoice {
@@ -62,6 +67,18 @@ export interface BriefingInvoice {
   client_paused: boolean;
   call_first: boolean;
   reminders_sent: number;
+  promised_on?: string | null;
+}
+
+/** A promise to pay on the briefing: kept ones wait, missed ones say so. */
+export interface PromiseEntry {
+  invoice_id: string;
+  invoice_number: string;
+  client_id: string;
+  client_name: string;
+  amount_due_cents: number;
+  promised_on: string;
+  missed: boolean;
 }
 
 export interface AttentionEntry {
@@ -91,6 +108,7 @@ export interface Briefing {
   overdue: BriefingInvoice[];
   needs_attention: AttentionEntry[];
   paused_clients: { client_id: string; name: string; open_invoices: number; overdue_cents: number }[];
+  promises?: PromiseEntry[];
 }
 
 /** One waiting draft from review_queue: the facts filled in and the signature added, exactly as approval freezes. */
@@ -181,6 +199,8 @@ export interface InvoiceListRow {
   reminders_sent_count: number;
   days_past_due: number;
   display_status: DisplayStatus;
+  promised_on: string | null;
+  promise_note: string | null;
 }
 
 export interface Client {
@@ -192,6 +212,50 @@ export interface Client {
   client_group: 'head_contractor' | 'homeowner' | 'other' | null;
   paused: boolean;
   paused_at: string | null;
+  /** The tone preset this client remembers, if its tone came from one. */
+  preset_id: string | null;
+}
+
+export interface TonePreset {
+  id: string;
+  name: string;
+  tone: Tone;
+  note: string | null;
+  /** New clients in this group get the preset by themselves. */
+  client_group: 'head_contractor' | 'homeowner' | 'other' | null;
+}
+
+export type PlanId = 'solo' | 'crew' | 'company';
+
+export interface PlanInfo {
+  id: PlanId;
+  name: string;
+  price_cents: number;
+  intro_price_cents: number;
+  clients_limit: number | null;
+  checker_allowed: boolean;
+}
+
+/** get_billing: the plan as worked out today. Phase, prices and the next charge are calculated, never stored. */
+export interface Billing {
+  catalogue: { currency: 'AUD'; intro_months: number; intro_percent_off: number; plans: PlanInfo[] };
+  plan: PlanId | null;
+  plan_name?: string;
+  phase: 'none' | 'intro' | 'full' | 'cancelling' | 'ended';
+  started_on?: string;
+  intro_ends_on?: string;
+  had_intro?: boolean;
+  intro_days_left?: number;
+  price_now_cents?: number;
+  full_price_cents?: number;
+  intro_price_cents?: number;
+  next_charge_on?: string | null;
+  next_charge_cents?: number | null;
+  ends_on?: string | null;
+  checkout_intro_months: number;
+  payment?: { mode: 'none' | 'stripe_test'; verified_at: string | null };
+  usage: { active_clients: number; has_checker: boolean; clients_limit: number | null; checker_allowed: boolean };
+  over_limit: boolean;
 }
 
 export interface OpenAttentionItem {
@@ -275,6 +339,7 @@ export type SettingsChanges = Partial<
     | 'call_first_threshold_cents'
     | 'xero_reminders'
     | 'column_mapping'
+    | 'auto_firm_after'
   >
 >;
 
@@ -383,4 +448,23 @@ export interface Backend {
   lastImport(businessId: string): Promise<ImportSummary | null>;
   weeklyRuns(businessId: string, sinceDate: string): Promise<WeeklyRun[]>;
   recordCounts(businessId: string): Promise<Record<string, number>>;
+  // The final version (migration 9).
+  getBilling(businessId: string): Promise<Billing>;
+  choosePlan(businessId: string, plan: PlanId): Promise<Billing>;
+  cancelPlan(businessId: string): Promise<Billing>;
+  resumePlan(businessId: string): Promise<Billing>;
+  /** Stripe Checkout in test mode (supabase/functions/billing-checkout). Absent where the function isn't deployed. */
+  startCheckout?(businessId: string, plan: PlanId, returnTo: string): Promise<{ url: string }>;
+  confirmCheckout?(businessId: string, sessionId: string): Promise<Billing>;
+  /** The Monday briefing by email now, to the signed-in owner (supabase/functions/send-briefing). Real backend only. */
+  emailBriefingNow?(businessId: string): Promise<{ sent_to: string }>;
+  joinWithCode(code: string): Promise<{ business_id: string; role: Role }>;
+  createBusiness(name: string, ownerName: string, replyToEmail: string): Promise<string>;
+  addSampleInvoices(businessId: string): Promise<{ invoices: number; drafts: number }>;
+  recordPromise(invoiceId: string, promisedOn: string, note?: string): Promise<{ promised_on: string; drafts_cancelled: number }>;
+  clearPromise(invoiceId: string): Promise<void>;
+  presets(businessId: string): Promise<TonePreset[]>;
+  savePreset(businessId: string, preset: Omit<TonePreset, 'id'>): Promise<string>;
+  deletePreset(presetId: string): Promise<void>;
+  applyPreset(presetId: string, clientIds: string[]): Promise<number>;
 }

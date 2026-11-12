@@ -4,6 +4,7 @@ import { Link } from '../app/router.tsx';
 import { useSession } from '../app/session.tsx';
 import { BrandFrame } from '../ui/BrandFrame.tsx';
 import { Button, ErrorPanel, PageTitle } from '../ui/controls.tsx';
+import { JoinWithCode, SetUpBusiness } from './Setup.tsx';
 
 const Frame = ({ children }: { children: React.ReactNode }) => (
   <BrandFrame>
@@ -18,8 +19,10 @@ export const NoBusinessScreen = () => {
     <Frame>
       <PageTitle documentTitle="No business yet">You're signed in, but not to a business yet</PageTitle>
       <p>
-        Ask the owner to invite you, or contact the team. You're signed in as <strong>{user?.email}</strong>.
+        Join with the code the owner gave you, or set up your own business with Test data. You're signed in as <strong>{user?.email}</strong>.
       </p>
+      <JoinWithCode />
+      <SetUpBusiness defaultEmail={user?.email ?? ''} />
       {config.supportEmail ? (
         <a className="btn btn-secondary" href={`mailto:${config.supportEmail}?subject=${encodeURIComponent('Payprentice: no business yet')}`}>
           Contact the team

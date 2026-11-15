@@ -121,7 +121,7 @@ select is((select join_code from public.memberships where id = current_setting('
 select tests.as_user('a0000000-0000-4000-8000-000000000091');
 select set_config('tests.biz_c', public.create_business('Second Demo (Test data)', 'Alex Test', 'alex@demo.test')::text, false);
 select is((select delete_after from public.businesses where id = tests.biz('biz_c')),
-  date '2026-11-25', 'Setup: a demonstration account''s new business is deleted with the Test data (PD-7)');
+  date '2026-12-31', 'Setup: a demonstration account''s new business is deleted with the Test data on Thu 31 Dec 2026 (PD-7)');
 
 -- ---------------------------------------------------------------------------------------------
 -- Cancelling, resuming and the months after the intro

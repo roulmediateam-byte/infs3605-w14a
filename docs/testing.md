@@ -65,7 +65,7 @@ Next steps, in a separate change:
 | `050_permissions.test.sql` | AT-09, isolation between businesses, anonymous access, team admins on test data only, the append-only log, invitations, export and delete |
 | `060_briefing.test.sql` | FR-11 to FR-13, AT-06, BR-06, BR-07, Needs attention, paused clients, call-first (FR-33) |
 | `070_jobs.test.sql` | AT-10 schedule windows, NFR-09 claims and retries, NFR-10 alert, the noon nudge, retention and orphaned accounts |
-| `080_demo_sign_up.test.sql` | The demonstration sign-up (migration 8): each account's own copy of the seed (RI-9), safe to repeat (NFR-09), isolated (NFR-05), never claiming an invitation (FR-01), the caps, and closed after Wed 25 Nov 2026 (PD-7) |
+| `080_demo_sign_up.test.sql` | The demonstration sign-up (migration 8): each account's own copy of the seed (RI-9), safe to repeat (NFR-09), isolated (NFR-05), never claiming an invitation (FR-01), the caps, and closed after Wed 30 Dec 2026 (PD-7, migration 10) |
 
 Tests pin every moment in Sydney time (for example Sun 8 Nov 2026, 9:00 pm), so they pass on any day. Each file runs in a transaction and rolls back.
 

@@ -133,6 +133,7 @@ export type Database = {
           delete_after: string | null;
           created_at: string;
           updated_at: string;
+          auto_firm_after: number | null;
         };
         Insert: {
           id?: string;
@@ -157,6 +158,7 @@ export type Database = {
           delete_after?: string | null;
           created_at?: string;
           updated_at?: string;
+          auto_firm_after?: number | null;
         };
         Update: {
           id?: string;
@@ -181,6 +183,7 @@ export type Database = {
           delete_after?: string | null;
           created_at?: string;
           updated_at?: string;
+          auto_firm_after?: number | null;
         };
         Relationships: [];
       };
@@ -198,6 +201,7 @@ export type Database = {
           external_ref: string | null;
           created_at: string;
           updated_at: string;
+          preset_id: string | null;
         };
         Insert: {
           id?: string;
@@ -212,6 +216,7 @@ export type Database = {
           external_ref?: string | null;
           created_at?: string;
           updated_at?: string;
+          preset_id?: string | null;
         };
         Update: {
           id?: string;
@@ -226,6 +231,7 @@ export type Database = {
           external_ref?: string | null;
           created_at?: string;
           updated_at?: string;
+          preset_id?: string | null;
         };
         Relationships: [
           {
@@ -233,6 +239,13 @@ export type Database = {
             columns: ['business_id'];
             isOneToOne: false;
             referencedRelation: 'businesses';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'clients_preset_id_fkey';
+            columns: ['preset_id'];
+            isOneToOne: false;
+            referencedRelation: 'tone_presets';
             referencedColumns: ['id'];
           },
         ];
@@ -360,6 +373,9 @@ export type Database = {
           external_ref: string | null;
           created_at: string;
           updated_at: string;
+          promised_on: string | null;
+          promise_note: string | null;
+          promise_recorded_at: string | null;
         };
         Insert: {
           id?: string;
@@ -381,6 +397,9 @@ export type Database = {
           external_ref?: string | null;
           created_at?: string;
           updated_at?: string;
+          promised_on?: string | null;
+          promise_note?: string | null;
+          promise_recorded_at?: string | null;
         };
         Update: {
           id?: string;
@@ -402,6 +421,9 @@ export type Database = {
           external_ref?: string | null;
           created_at?: string;
           updated_at?: string;
+          promised_on?: string | null;
+          promise_note?: string | null;
+          promise_recorded_at?: string | null;
         };
         Relationships: [
           {
@@ -500,6 +522,8 @@ export type Database = {
           invited_at: string;
           accepted_at: string | null;
           removed_at: string | null;
+          join_code: string | null;
+          join_code_expires_at: string | null;
         };
         Insert: {
           id?: string;
@@ -513,6 +537,8 @@ export type Database = {
           invited_at?: string;
           accepted_at?: string | null;
           removed_at?: string | null;
+          join_code?: string | null;
+          join_code_expires_at?: string | null;
         };
         Update: {
           id?: string;
@@ -526,6 +552,8 @@ export type Database = {
           invited_at?: string;
           accepted_at?: string | null;
           removed_at?: string | null;
+          join_code?: string | null;
+          join_code_expires_at?: string | null;
         };
         Relationships: [
           {
@@ -721,6 +749,103 @@ export type Database = {
           },
         ];
       };
+      subscriptions: {
+        Row: {
+          business_id: string;
+          plan: Database['public']['Enums']['plan_id'];
+          started_on: string;
+          intro_ends_on: string;
+          cancelled_at: string | null;
+          ends_on: string | null;
+          payment_mode: string;
+          stripe_checkout_id: string | null;
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
+          paid_verified_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          business_id: string;
+          plan: Database['public']['Enums']['plan_id'];
+          started_on: string;
+          intro_ends_on: string;
+          cancelled_at?: string | null;
+          ends_on?: string | null;
+          payment_mode?: string;
+          stripe_checkout_id?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          paid_verified_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          business_id?: string;
+          plan?: Database['public']['Enums']['plan_id'];
+          started_on?: string;
+          intro_ends_on?: string;
+          cancelled_at?: string | null;
+          ends_on?: string | null;
+          payment_mode?: string;
+          stripe_checkout_id?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          paid_verified_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'subscriptions_business_id_fkey';
+            columns: ['business_id'];
+            isOneToOne: true;
+            referencedRelation: 'businesses';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      tone_presets: {
+        Row: {
+          id: string;
+          business_id: string;
+          name: string;
+          tone: Database['public']['Enums']['tone'];
+          note: string | null;
+          client_group: Database['public']['Enums']['client_group'] | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          name: string;
+          tone: Database['public']['Enums']['tone'];
+          note?: string | null;
+          client_group?: Database['public']['Enums']['client_group'] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          name?: string;
+          tone?: Database['public']['Enums']['tone'];
+          note?: string | null;
+          client_group?: Database['public']['Enums']['client_group'] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'tone_presets_business_id_fkey';
+            columns: ['business_id'];
+            isOneToOne: false;
+            referencedRelation: 'businesses';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       invoice_list: {
@@ -743,6 +868,8 @@ export type Database = {
           reminders_sent_count: number | null;
           days_past_due: number | null;
           display_status: string | null;
+          promised_on: string | null;
+          promise_note: string | null;
         };
         Relationships: [];
       };
@@ -752,6 +879,19 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: Json;
       };
+      add_sample_invoices: {
+        Args: {
+          p_business_id: string;
+        };
+        Returns: Json;
+      };
+      apply_preset: {
+        Args: {
+          p_preset_id: string;
+          p_client_ids: string[];
+        };
+        Returns: number;
+      };
       approve_draft: {
         Args: {
           p_draft_id: string;
@@ -759,6 +899,25 @@ export type Database = {
           p_body?: string;
         };
         Returns: Json;
+      };
+      cancel_plan: {
+        Args: {
+          p_business_id: string;
+        };
+        Returns: Json;
+      };
+      choose_plan: {
+        Args: {
+          p_business_id: string;
+          p_plan: Database['public']['Enums']['plan_id'];
+        };
+        Returns: Json;
+      };
+      clear_promise: {
+        Args: {
+          p_invoice_id: string;
+        };
+        Returns: undefined;
       };
       confirm_import: {
         Args: {
@@ -796,6 +955,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      delete_preset: {
+        Args: {
+          p_preset_id: string;
+        };
+        Returns: undefined;
+      };
       dismiss_attention: {
         Args: {
           p_item_id: string;
@@ -803,6 +968,12 @@ export type Database = {
         Returns: undefined;
       };
       export_business_data: {
+        Args: {
+          p_business_id: string;
+        };
+        Returns: Json;
+      };
+      get_billing: {
         Args: {
           p_business_id: string;
         };
@@ -836,6 +1007,12 @@ export type Database = {
         };
         Returns: string;
       };
+      join_with_code: {
+        Args: {
+          p_code: string;
+        };
+        Returns: Json;
+      };
       log_review_session: {
         Args: {
           p_business_id: string;
@@ -847,6 +1024,14 @@ export type Database = {
         Args: {
           p_invoice_id: string;
           p_paid_date?: string;
+        };
+        Returns: Json;
+      };
+      record_promise: {
+        Args: {
+          p_invoice_id: string;
+          p_promised_on: string;
+          p_note?: string;
         };
         Returns: Json;
       };
@@ -863,6 +1048,12 @@ export type Database = {
           p_membership_id: string;
         };
         Returns: undefined;
+      };
+      resume_plan: {
+        Args: {
+          p_business_id: string;
+        };
+        Returns: Json;
       };
       review_queue: {
         Args: {
@@ -888,6 +1079,16 @@ export type Database = {
           reminders_sent_before: number;
           created_at: string;
         }[];
+      };
+      save_preset: {
+        Args: {
+          p_business_id: string;
+          p_name: string;
+          p_tone: Database['public']['Enums']['tone'];
+          p_note?: string;
+          p_client_group?: Database['public']['Enums']['client_group'];
+        };
+        Returns: string;
       };
       set_client_group: {
         Args: {
@@ -933,9 +1134,9 @@ export type Database = {
       };
     };
     Enums: {
-      activity_action: 'import_completed' | 'draft_created' | 'draft_flagged' | 'draft_approved' | 'draft_rejected' | 'reminder_sent' | 'invoice_paid' | 'briefing_sent' | 'review_session' | 'draft_edited' | 'draft_cancelled' | 'send_refused' | 'invoice_reopened' | 'invoice_closed' | 'nudge_sent' | 'weekly_run_completed' | 'business_created' | 'settings_changed' | 'client_updated' | 'client_paused' | 'client_unpaused' | 'member_invited' | 'member_joined' | 'member_removed' | 'attention_dismissed' | 'data_exported';
+      activity_action: 'import_completed' | 'draft_created' | 'draft_flagged' | 'draft_approved' | 'draft_rejected' | 'reminder_sent' | 'invoice_paid' | 'briefing_sent' | 'review_session' | 'draft_edited' | 'draft_cancelled' | 'send_refused' | 'invoice_reopened' | 'invoice_closed' | 'nudge_sent' | 'weekly_run_completed' | 'business_created' | 'settings_changed' | 'client_updated' | 'client_paused' | 'client_unpaused' | 'member_invited' | 'member_joined' | 'member_removed' | 'attention_dismissed' | 'data_exported' | 'plan_changed' | 'plan_cancelled' | 'plan_resumed' | 'payment_recorded' | 'promise_recorded' | 'promise_cleared' | 'preset_saved' | 'preset_deleted' | 'preset_applied' | 'tone_stepped_up';
       attention_kind: 'amount_changed' | 'due_date_changed';
-      cancel_reason: 'invoice_paid' | 'invoice_closed' | 'amount_changed' | 'due_date_changed' | 'client_paused' | 'email_missing' | 'superseded';
+      cancel_reason: 'invoice_paid' | 'invoice_closed' | 'amount_changed' | 'due_date_changed' | 'client_paused' | 'email_missing' | 'superseded' | 'promised';
       client_group: 'head_contractor' | 'homeowner' | 'other';
       close_reason: 'not_in_latest_import' | 'closed_by_user';
       draft_source: 'ai' | 'template';
@@ -947,6 +1148,7 @@ export type Database = {
       job_trigger: 'schedule' | 'manual';
       member_role: 'owner' | 'checker' | 'admin';
       member_status: 'invited' | 'active' | 'removed';
+      plan_id: 'solo' | 'crew' | 'company';
       quote_status: 'open' | 'won' | 'lost';
       reject_reason: 'already_paid' | 'wrong_amount_or_invoice' | 'will_call' | 'wrong_tone' | 'other';
       send_method: 'email_app' | 'copy_paste';

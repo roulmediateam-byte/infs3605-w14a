@@ -4,7 +4,7 @@
 import { useSyncExternalStore, type AnchorHTMLAttributes, type MouseEvent, type ReactNode } from 'react';
 import { config } from './config.ts';
 
-export type RouteName = 'home' | 'review' | 'invoices' | 'import' | 'clients' | 'log' | 'settings' | 'more' | 'sign-in' | 'not-found';
+export type RouteName = 'home' | 'review' | 'invoices' | 'import' | 'clients' | 'log' | 'settings' | 'more' | 'plans' | 'setup' | 'sign-in' | 'not-found';
 
 const ROUTES: Record<string, RouteName> = {
   '': 'home',
@@ -15,6 +15,8 @@ const ROUTES: Record<string, RouteName> = {
   log: 'log',
   settings: 'settings',
   more: 'more',
+  plans: 'plans',
+  setup: 'setup',
   'sign-in': 'sign-in',
 };
 

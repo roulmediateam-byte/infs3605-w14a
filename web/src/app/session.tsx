@@ -38,6 +38,8 @@ export interface SessionValue {
   signedIn: (user: AuthUser) => Promise<void>;
   reportSignedOut: () => void;
   retry: () => void;
+  /** Reads the memberships again, after joining with a code or setting up a business. */
+  refresh: () => Promise<void>;
 }
 
 const SessionContext = createContext<SessionValue | null>(null);
@@ -210,6 +212,10 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     if (userRef.current && !signingOut.current) setSessionEnded(true);
   }, []);
 
+  const refresh = useCallback(async () => {
+    if (userRef.current) await load(userRef.current);
+  }, [load]);
+
   const retry = useCallback(() => {
     setStatus('loading');
     setAttempt((n) => n + 1);
@@ -232,8 +238,9 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       signedIn,
       reportSignedOut,
       retry,
+      refresh,
     }),
-    [status, user, memberships, businessId, role, sessionEnded, notice, loadError, chooseBusiness, signOut, signedIn, reportSignedOut, retry],
+    [status, user, memberships, businessId, role, sessionEnded, notice, loadError, chooseBusiness, signOut, signedIn, reportSignedOut, retry, refresh],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

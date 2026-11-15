@@ -21,12 +21,14 @@ const ImportScreen = lazy(() => import('../screens/Import.tsx').then((m) => ({ d
 const InvoicesScreen = lazy(() => import('../screens/invoices/Invoices.tsx').then((m) => ({ default: m.InvoicesScreen })));
 const ClientsScreen = lazy(() => import('../screens/clients/Clients.tsx').then((m) => ({ default: m.ClientsScreen })));
 const LogScreen = lazy(() => import('../screens/Log.tsx').then((m) => ({ default: m.LogScreen })));
+const PlansScreen = lazy(() => import('../screens/Plans.tsx').then((m) => ({ default: m.PlansScreen })));
+const SetupScreen = lazy(() => import('../screens/Setup.tsx').then((m) => ({ default: m.SetupScreen })));
 const SettingsScreen = lazy(() => import('../screens/Settings.tsx').then((m) => ({ default: m.SettingsScreen })));
 
 /** Only app paths may follow sign-in, never another site. */
 export const safeNext = (next: string | null): string | null => {
   if (!next) return null;
-  return /^(review|invoices|import|clients|log|settings|more)?(\?[A-Za-z0-9=&%._-]*)?$/.test(next) ? next : null;
+  return /^(review|invoices|import|clients|log|settings|more|plans|setup)?(\?[A-Za-z0-9=&%._-]*)?$/.test(next) ? next : null;
 };
 
 /** If a lazily loaded screen fails, usually because a newer version was published or the signal dropped, say which. */
@@ -66,6 +68,10 @@ const screenFor = (route: RouteName): ReactNode => {
       return screenEnabled('settings') ? <SettingsScreen /> : <NotFoundScreen />;
     case 'more':
       return <MoreScreen />;
+    case 'plans':
+      return <PlansScreen />;
+    case 'setup':
+      return <SetupScreen />;
     default:
       return <NotFoundScreen />;
   }

@@ -21,7 +21,7 @@ interface NavItem {
   badge?: number;
 }
 
-const MORE_ROUTES: RouteName[] = ['more', 'import', 'log', 'settings'];
+const MORE_ROUTES: RouteName[] = ['more', 'import', 'log', 'settings', 'plans', 'setup'];
 
 /** What a reload does to the preview's data, in the strip's "Details" (src/backend/preview-store.ts). */
 const keptNote = (storage: PreviewStorage): string =>

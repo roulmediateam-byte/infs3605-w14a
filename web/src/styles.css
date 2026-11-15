@@ -3125,3 +3125,80 @@ form + .settings-group {
 .file-name {
   overflow-wrap: anywhere;
 }
+
+/* ---------------------------------------------------------------------------------------------
+   Plans and billing (final version)
+   --------------------------------------------------------------------------------------------- */
+.plans-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.plan-card {
+  border: 1px solid var(--border, #e2e8f0);
+}
+.plan-card-recommended {
+  border: 2px solid var(--apprentice);
+  box-shadow: 0 8px 24px rgb(109 40 217 / 0.12);
+}
+.plan-card-current {
+  border: 2px solid var(--action);
+}
+.plan-price {
+  margin: 0;
+}
+.plan-price .t-figure {
+  font-size: 2.25rem;
+}
+.plan-points {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.plan-points li {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+}
+.plan-points svg {
+  color: var(--apprentice);
+  flex: none;
+  margin-top: 3px;
+}
+.join-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.25rem;
+  letter-spacing: 0.12em;
+}
+.promise-row {
+  border-left: 4px solid var(--apprentice);
+  padding-left: 12px;
+}
+.preset-row .list-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.block-col {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+}
+.promise-row button.list-main {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  font: inherit;
+  gap: 2px;
+  padding: 0;
+  text-align: left;
+}

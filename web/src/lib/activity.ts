@@ -30,7 +30,17 @@ export type ActivityAction =
   | 'member_joined'
   | 'member_removed'
   | 'attention_dismissed'
-  | 'data_exported';
+  | 'data_exported'
+  | 'plan_changed'
+  | 'plan_cancelled'
+  | 'plan_resumed'
+  | 'payment_recorded'
+  | 'promise_recorded'
+  | 'promise_cleared'
+  | 'preset_saved'
+  | 'preset_deleted'
+  | 'preset_applied'
+  | 'tone_stepped_up';
 
 export interface LogEntry {
   id: number;
@@ -91,7 +101,20 @@ const CATEGORY: Record<ActivityAction, LogCategory> = {
   member_removed: 'settings',
   attention_dismissed: 'settings',
   data_exported: 'settings',
+  plan_changed: 'settings',
+  plan_cancelled: 'settings',
+  plan_resumed: 'settings',
+  payment_recorded: 'payments',
+  promise_recorded: 'payments',
+  promise_cleared: 'payments',
+  preset_saved: 'settings',
+  preset_deleted: 'settings',
+  preset_applied: 'settings',
+  tone_stepped_up: 'drafts',
 };
+
+const PLAN_WORDS: Record<string, string> = { solo: 'Solo', crew: 'Crew', company: 'Company' };
+const planWord = (value: unknown): string => (typeof value === 'string' ? (PLAN_WORDS[value] ?? value) : 'chosen');
 
 export const categoryOf = (action: ActivityAction): LogCategory => CATEGORY[action] ?? 'settings';
 
@@ -243,6 +266,28 @@ export const describe = (entry: LogEntry, lookups: LogLookups): string => {
       return `${who} checked ${inv} and dismissed its ${str(d.kind) === 'due_date_changed' ? 'due date' : 'amount'} change`;
     case 'data_exported':
       return `${who} exported all the business's data`;
+    case 'plan_changed':
+      return d.from ? `${who} moved the plan from ${planWord(d.from)} to ${planWord(d.to)}` : `${who} started the ${planWord(d.to)} plan${d.intro ? ', 80% off for 3 months' : ''}`;
+    case 'plan_cancelled':
+      return `${who} cancelled the ${planWord(d.plan)} plan. It ends ${typeof d.ends_on === 'string' ? formatDate(d.ends_on) : 'at the end of the month'}`;
+    case 'plan_resumed':
+      return `${who} kept the ${planWord(d.plan)} plan going`;
+    case 'payment_recorded':
+      return `A card was added for the ${planWord(d.plan)} plan (Stripe test mode, no real money)`;
+    case 'promise_recorded':
+      return `${who} recorded that ${client} promised to pay ${inv}${typeof d.promised_on === 'string' ? ` by ${formatDate(d.promised_on)}` : ''}`;
+    case 'promise_cleared':
+      return `${who} cleared the promise to pay on ${inv}`;
+    case 'preset_saved':
+      return `${who} saved the tone preset "${str(d.name)}" (${TONE_LABEL[(str(d.tone) as Tone) || 'standard'] ?? 'Standard'})`;
+    case 'preset_deleted':
+      return `${who} deleted the tone preset "${str(d.name)}"`;
+    case 'preset_applied': {
+      const n = num(d.clients);
+      return `${who} gave ${n === 1 ? '1 client' : `${n} clients`} the tone preset "${str(d.name)}"`;
+    }
+    case 'tone_stepped_up':
+      return `Your apprentice made ${client} ${(TONE_LABEL[str(d.to) as Tone] ?? 'firmer').toLowerCase()} after ${num(d.after_reminders)} unpaid ${num(d.after_reminders) === 1 ? 'reminder' : 'reminders'}`;
     default:
       return `${who} made a change`;
   }

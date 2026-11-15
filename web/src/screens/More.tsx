@@ -2,7 +2,7 @@
 // "Contact the team" sits in the same place on every screen's More (WCAG 3.2.6) and sends the business's code only.
 // The preview adds Sunday's drafting run at the top, the demo's key step, and "Reset demo data" at the bottom. The
 // demonstration build adds the same drafting run for the owner of a Test data business (config.demoTools).
-import { Building2, ChevronRight, FlaskConical, Keyboard, LogOut, MessageCircle, RotateCcw, ScrollText, Settings, Upload } from 'lucide-react';
+import { BadgeDollarSign, Building2, Mail, ChevronRight, CirclePlus, FlaskConical, Keyboard, LogOut, MessageCircle, RotateCcw, ScrollText, Settings, Upload } from 'lucide-react';
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { config, screenEnabled } from '../app/config.ts';
 import { useMessages } from '../app/messages.tsx';
@@ -159,6 +159,17 @@ export const MoreScreen = () => {
             <IconTile icon={Upload} tone="action" size="sm" /> Import invoices <ChevronRight className="chev" size={20} strokeWidth={2} aria-hidden="true" />
           </Link>
         </li>
+        {role === 'owner' && backend.kind === 'supabase' && backend.emailBriefingNow ? <EmailBriefingItem /> : null}
+        <li>
+          <Link to="plans">
+            <IconTile icon={BadgeDollarSign} tone="action" size="sm" /> Plans and billing <ChevronRight className="chev" size={20} strokeWidth={2} aria-hidden="true" />
+          </Link>
+        </li>
+        <li>
+          <Link to="setup">
+            <IconTile icon={CirclePlus} tone="action" size="sm" /> Set up or join a business <ChevronRight className="chev" size={20} strokeWidth={2} aria-hidden="true" />
+          </Link>
+        </li>
         <li>
           <Link to="log">
             <IconTile icon={ScrollText} tone="action" size="sm" /> Activity log <ChevronRight className="chev" size={20} strokeWidth={2} aria-hidden="true" />
@@ -226,5 +237,28 @@ export const MoreScreen = () => {
       <p className="t-caption">Signing out ends your session on this device only.</p>
       {backend.preview ? <ResetDemo /> : null}
     </div>
+  );
+};
+
+/** The Monday briefing by email, now, to the owner's own sign-in address (supabase/functions/send-briefing). */
+const EmailBriefingItem = () => {
+  const backend = useBackend();
+  const { businessId } = useBusiness();
+  const { run, busy } = useAction();
+  const { show } = useMessages();
+  return (
+    <li>
+      <button
+        type="button"
+        disabled={busy === 'email-briefing'}
+        onClick={() =>
+          void run('email-briefing', () => backend.emailBriefingNow!(businessId), { refresh: 'none' }).then((result) =>
+            show(result.ok ? { text: `Sent. Your briefing is on its way to ${result.value.sent_to}.` } : { text: result.error.message, tone: 'critical' }),
+          )
+        }
+      >
+        <IconTile icon={Mail} tone="action" size="sm" /> {busy === 'email-briefing' ? 'Sending…' : 'Email me my briefing now'}
+      </button>
+    </li>
   );
 };

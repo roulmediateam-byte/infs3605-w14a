@@ -1,10 +1,10 @@
 -- Sign-up for the demonstration build (migration 8): each demonstration account gets its own copy of the seed's
 -- Test data business (RI-9), safely repeated (NFR-09), isolated from every other business (NFR-05), never able to
--- claim an invitation (FR-01), within caps, and closed after Wed 25 Nov 2026 (PD-7).
+-- claim an invitation (FR-01), within caps, and closed after Wed 30 Dec 2026 (PD-7, migration 10).
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(24);
+select plan(25);
 
 create schema tests;
 grant usage on schema tests to public;
@@ -42,8 +42,8 @@ create temp table biz_a as select (r ->> 'business_id')::uuid as id from made_a;
 select is((select r ->> 'outcome' from made_a), 'created', 'A demonstration account gets a business of its own');
 select is(
   (select b.name || ' | ' || b.is_test_data || ' | ' || b.delete_after from public.businesses b join biz_a on b.id = biz_a.id),
-  'Harbour Line Electrical (Test data) | true | 2026-11-25',
-  'It is the seed''s Test data business, deleted by Thu 26 Nov 2026 (RI-9, PD-7)'
+  'Harbour Line Electrical (Test data) | true | 2026-12-31',
+  'It is the seed''s Test data business, deleted on Thu 31 Dec 2026 with every business (RI-9, PD-7, migration 10)'
 );
 select is(
   (select m.role || ' ' || m.status from public.memberships m join biz_a on m.business_id = biz_a.id where m.user_id = 'a0000000-0000-4000-8000-000000000081'),
@@ -107,8 +107,10 @@ select is(public.job_demo_provision('a0000000-0000-4000-8000-000000000086') ->> 
 
 -- When sign-ups are open.
 select is(public.job_demo_sign_up_room('2026-10-28 14:00+11') ->> 'reason', 'open', 'Sign-ups are open for the Week 7 demonstration');
-select is(public.job_demo_sign_up_room('2026-11-26 00:30+11') ->> 'reason', 'closed',
-  'Sign-ups close after Wed 25 Nov 2026, as Test data is deleted by Thu 26 Nov (PD-7)');
+select is(public.job_demo_sign_up_room('2026-11-26 00:30+11') ->> 'reason', 'open',
+  'Sign-ups stay open after the Week 10 submission, for ordinary users (migration 10)');
+select is(public.job_demo_sign_up_room('2026-12-31 00:30+11') ->> 'reason', 'closed',
+  'Sign-ups close after Wed 30 Dec 2026, as every business is deleted on Thu 31 Dec (PD-7)');
 insert into auth.users (id, email, raw_app_meta_data, created_at)
 select gen_random_uuid(), 'burst' || n || '@demo.test', '{"demo_sign_up": true}', timestamptz '2026-10-28 13:30+11'
 from generate_series(1, 60) n;

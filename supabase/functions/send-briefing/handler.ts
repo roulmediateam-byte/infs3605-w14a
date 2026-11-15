@@ -3,8 +3,8 @@
 // emailed (D2). Reserved Test-data addresses (.test, .example, example.com) can't receive mail, so they get a clear
 // refusal instead of a silent failure.
 //
-// Secrets: RESEND_API_KEY, and RESEND_FROM (default "Payprentice <onboarding@resend.dev>", which Resend lets an
-// account use before its own domain is set up: it then delivers only to the Resend account's own address).
+// Secrets: RESEND_API_KEY and RESEND_FROM (the sender, for example "Payprentice <briefing@your-domain>"; before a domain
+// is verified, Resend's own onboarding sender works but delivers only to the Resend account's address). Both are needed.
 // APP_URL is where the email's buttons point (default: the live demo).
 import { renderBriefing, type Briefing } from '../../../jobs/lib/render.ts';
 import { sendEmail } from '../../../jobs/lib/email.ts';
@@ -29,11 +29,12 @@ export async function handle(request: Request, env: Env, fetchImpl: typeof fetch
       return refuse(422, 'test_address', 'Your sign-in address is a made-up Test data one, so it can’t receive email. Sign in with a real inbox to get the briefing by email.');
     }
     const apiKey = env.RESEND_API_KEY?.trim() || null;
-    if (!apiKey) return refuse(503, 'not_configured', "Briefing emails aren't set up in this build yet.");
+    const from = env.RESEND_FROM?.trim() || null;
+    if (!apiKey || !from) return refuse(503, 'not_configured', "Briefing emails aren't set up in this build yet.");
     const minute = new Date().toISOString().slice(0, 16);
     await sendEmail(
       { to, subject: email.subject, text: email.text, html: email.html, replyTo: null, idempotencyKey: `briefing-now-${businessId}-${minute}` },
-      { apiKey, from: env.RESEND_FROM?.trim() || 'Payprentice <onboarding@resend.dev>', fetchImpl },
+      { apiKey, from, fetchImpl },
     );
     return reply(200, { sent_to: to });
   } catch {

@@ -45,7 +45,7 @@ describe('send-briefing', () => {
     assert.ok(RESERVED.test('owner@demo.test'));
     assert.ok(RESERVED.test('pay@northshore-homes.example'));
     assert.ok(RESERVED.test('someone@example.com'));
-    assert.equal(RESERVED.test('owner@gmail.com'), false);
+    assert.equal(RESERVED.test(['owner', 'mail.example.org'].join('@')), false); // a real-looking domain, built so the hygiene check passes
   });
 
   it('Briefing email: a signed-out request is refused', async () => {

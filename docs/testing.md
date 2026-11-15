@@ -66,6 +66,8 @@ Next steps, in a separate change:
 | `060_briefing.test.sql` | FR-11 to FR-13, AT-06, BR-06, BR-07, Needs attention, paused clients, call-first (FR-33) |
 | `070_jobs.test.sql` | AT-10 schedule windows, NFR-09 claims and retries, NFR-10 alert, the noon nudge, retention and orphaned accounts |
 | `080_demo_sign_up.test.sql` | The demonstration sign-up (migration 8): each account's own copy of the seed (RI-9), safe to repeat (NFR-09), isolated (NFR-05), never claiming an invitation (FR-01), the caps, and closed after Wed 30 Dec 2026 (PD-7, migration 10) |
+| `090_final_version.test.sql` | The final version (migration 9): plans and the intro countdown, joining with a code, promises to pay, tone presets, firmer by itself, setting up a business with sample Test data |
+| `095_run_it_now_any_day.test.sql` | Migration 11: on a new demonstration account, "Run it now" is a new run on any day, replaces the sign-up's drafts, drafts again and applies firmer by itself |
 
 Tests pin every moment in Sydney time (for example Sun 8 Nov 2026, 9:00 pm), so they pass on any day. Each file runs in a transaction and rolls back.
 

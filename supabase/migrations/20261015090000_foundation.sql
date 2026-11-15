@@ -1,4 +1,4 @@
--- Get-Paid Apprentice · migration 1 of 7 · foundation
+-- Payprentice · migration 1 of 7 · foundation
 -- Schemas, enumerated types and the function-grant convention.
 -- Requirements: NFR-05 (the server checks every request), FR-21 (every action logged), BR-14 (cents and UTC).
 -- Conventions (docs/adr/0003-writes-through-functions.md):
@@ -10,7 +10,7 @@
 --   * Every function sets search_path = '' and uses fully qualified names.
 
 create schema if not exists private;
-comment on schema private is 'Helpers and trigger functions for Get-Paid Apprentice. Not exposed through the API.';
+comment on schema private is 'Helpers and trigger functions for Payprentice. Not exposed through the API.';
 revoke all on schema private from public;
 grant usage on schema private to authenticated, service_role;
 

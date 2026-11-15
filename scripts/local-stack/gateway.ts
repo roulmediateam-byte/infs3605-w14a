@@ -1,7 +1,7 @@
 // A local stand-in for a Supabase project, so the web app can be developed and tested without Docker.
 // It runs the real PostgREST against the local database (every migration, row-level security policy and
-// function) and answers the few Auth calls the app makes: email codes and links, sessions and sign-out. supabase-js
-// talks to it unchanged, at http://127.0.0.1:54321.
+// function) and answers the few Auth calls the app makes: email codes and links, the demonstration build's passwords,
+// sessions and sign-out. supabase-js talks to it unchanged, at http://127.0.0.1:54321.
 //
 // Development only. It signs tokens with a fixed, public secret and shows sign-in codes on a local URL, so it
 // must never face the internet. Synthetic Test data only (RI-9).
@@ -10,13 +10,15 @@
 //   PGHOST=127.0.0.1 PGPORT=5432 PGUSER=postgres node scripts/local-stack/gateway.ts
 // Then: the app at web/ (npm run dev), codes at http://127.0.0.1:54321/__local/codes?email=owner@example.test
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { createHash, createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
+import { handle as demoSignUp } from '../../supabase/functions/demo-sign-up/handler.ts';
+import { handle as demoWeeklyRun } from '../../supabase/functions/demo-weekly-run/handler.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -86,10 +88,14 @@ interface LocalUser {
   id: string;
   email: string;
   created_at: string;
+  /** app_metadata: only the service role sets it (the demonstration sign-up marks its accounts there). */
+  app: Record<string, unknown> | null;
 }
 
+const USER_COLUMNS = 'id, email, created_at, raw_app_meta_data as app';
+
 const findUser = (email: string): LocalUser | null => {
-  const row = psql(`select coalesce(row_to_json(u)::text, '') from (select id, email, created_at from auth.users where lower(email) = lower('${email}')) u`);
+  const row = psql(`select coalesce(row_to_json(u)::text, '') from (select ${USER_COLUMNS} from auth.users where lower(email) = lower('${email}')) u`);
   return row ? (JSON.parse(row) as LocalUser) : null;
 };
 
@@ -106,7 +112,7 @@ const findOrInviteUser = (email: string): LocalUser | null => {
 
 const userById = (id: string): LocalUser | null => {
   if (!/^[0-9a-f-]{36}$/.test(id)) return null;
-  const row = psql(`select coalesce(row_to_json(u)::text, '') from (select id, email, created_at from auth.users where id = '${id}') u`);
+  const row = psql(`select coalesce(row_to_json(u)::text, '') from (select ${USER_COLUMNS} from auth.users where id = '${id}') u`);
   return row ? (JSON.parse(row) as LocalUser) : null;
 };
 
@@ -136,6 +142,14 @@ const safeRedirect = (value: string | null): string => {
 };
 const codes = new Map<string, PendingCode>();
 const refreshTokens = new Map<string, string>(); // refresh token -> user id
+// The demonstration build's passwords, by user id: salted scrypt hashes, in memory, as Supabase keeps bcrypt hashes.
+const passwords = new Map<string, { salt: Buffer; hash: Buffer }>();
+const hashPassword = (password: string, salt: Buffer = randomBytes(16)) => ({ salt, hash: scryptSync(password, salt, 32) });
+const passwordMatches = (userId: string, password: string): boolean => {
+  const stored = passwords.get(userId);
+  if (!stored) return false;
+  return timingSafeEqual(stored.hash, hashPassword(password, stored.salt).hash);
+};
 // Tokens issued before this moment are refused, as Supabase refuses expired ones (POST /__local/end-sessions).
 let revokedBefore = 0;
 
@@ -148,7 +162,7 @@ const userJson = (user: LocalUser) => ({
   phone: '',
   confirmed_at: user.created_at,
   last_sign_in_at: new Date().toISOString(),
-  app_metadata: { provider: 'email', providers: ['email'] },
+  app_metadata: { ...(user.app ?? {}), provider: 'email', providers: ['email'] },
   user_metadata: {},
   identities: [],
   created_at: user.created_at,
@@ -261,6 +275,19 @@ const handleAuth = async (req: IncomingMessage, res: ServerResponse, route: stri
 
   if (req.method === 'POST' && route === '/verify') {
     const body = await readJson(req);
+    // A pasted sign-in link (web/src/lib/sign-in-link.ts): like Supabase, its token is accepted as token_hash.
+    if (typeof body.token_hash === 'string') {
+      const entry = [...codes.entries()].find(([, pending]) => pending.linkToken === body.token_hash);
+      const user = entry ? findUser(entry[0]) : null;
+      const pending = entry?.[1];
+      if (!pending || !user || pending.used || pending.expiresAt < Date.now()) {
+        authError(res, 403, 'otp_expired', 'Email link is invalid or has expired');
+        return;
+      }
+      pending.used = true;
+      sendJson(res, 200, sessionFor(user));
+      return;
+    }
     const email = String(body.email ?? '').trim().toLowerCase();
     const token = String(body.token ?? '').trim();
     const pending = codes.get(email);
@@ -313,6 +340,54 @@ const handleAuth = async (req: IncomingMessage, res: ServerResponse, route: stri
     return;
   }
 
+  // The Auth admin API's "create user", as the demonstration sign-up calls it: service key only, confirmed at once.
+  if (req.method === 'POST' && route === '/admin/users') {
+    const key = bearer(req) ?? String(req.headers.apikey ?? '');
+    if (key !== SERVICE_ROLE_KEY) {
+      authError(res, 401, 'no_authorization', 'This endpoint requires a valid service key');
+      return;
+    }
+    const body = await readJson(req);
+    const email = String(body.email ?? '').trim().toLowerCase();
+    const password = typeof body.password === 'string' ? body.password : '';
+    if (!EMAIL_PATTERN.test(email)) {
+      authError(res, 400, 'validation_failed', 'Unable to validate email address: invalid format');
+      return;
+    }
+    if (password.length < 6) {
+      authError(res, 422, 'weak_password', 'Password should be at least 6 characters.');
+      return;
+    }
+    if (findUser(email)) {
+      authError(res, 422, 'email_exists', 'A user with this email address has already been registered');
+      return;
+    }
+    const demo = (body.app_metadata as { demo_sign_up?: unknown } | undefined)?.demo_sign_up === true;
+    const id = randomUUID();
+    psql(`insert into auth.users (id, email, raw_app_meta_data) values ('${id}', '${email}', '${demo ? '{"demo_sign_up": true}' : '{}'}'::jsonb)`);
+    passwords.set(id, hashPassword(password));
+    const user = userById(id);
+    if (!user) {
+      authError(res, 500, 'unexpected_failure', 'The local stack could not read the new user');
+      return;
+    }
+    sendJson(res, 200, userJson(user));
+    return;
+  }
+
+  // Sign-in with a password (the demonstration build): Supabase answers 400 invalid_credentials for any mismatch.
+  if (req.method === 'POST' && route === '/token' && query.get('grant_type') === 'password') {
+    const body = await readJson(req);
+    const email = String(body.email ?? '').trim().toLowerCase();
+    const user = EMAIL_PATTERN.test(email) ? findUser(email) : null;
+    if (!user || !passwordMatches(user.id, String(body.password ?? ''))) {
+      authError(res, 400, 'invalid_credentials', 'Invalid login credentials');
+      return;
+    }
+    sendJson(res, 200, sessionFor(user));
+    return;
+  }
+
   if (req.method === 'POST' && route === '/token' && query.get('grant_type') === 'refresh_token') {
     const body = await readJson(req);
     const token = String(body.refresh_token ?? '');
@@ -340,7 +415,8 @@ const handleAuth = async (req: IncomingMessage, res: ServerResponse, route: stri
 // ---------------------------------------------------------------------------------------------
 const proxyRest = (req: IncomingMessage, res: ServerResponse, pathAndQuery: string): void => {
   const token = bearer(req);
-  if (token && token !== ANON_KEY) {
+  // Ending sessions (POST /__local/end-sessions) ends people's sessions, as on Supabase: the project's keys still work.
+  if (token && token !== ANON_KEY && token !== SERVICE_ROLE_KEY) {
     const claims = verifyToken(token);
     if (!claims || (typeof claims.iat === 'number' && claims.iat < revokedBefore)) {
       // PostgREST's answer to an expired token.
@@ -467,8 +543,58 @@ const reset = async (): Promise<void> => {
   setupDatabase();
   codes.clear();
   refreshTokens.clear();
+  passwords.clear();
   revokedBefore = 0;
   await startPostgrest();
+};
+
+// ---------------------------------------------------------------------------------------------
+// /functions/v1/demo-weekly-run: the demonstration build's "Run it now", run in-process with this stack's keys
+// ---------------------------------------------------------------------------------------------
+const serveDemoWeeklyRun = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+  // As Supabase's verify_jwt check does: only a token this stack signed gets through to the function.
+  const token = bearer(req);
+  if (!token || !verifyToken(token)) {
+    authError(res, 401, 'unauthorized', 'Missing or invalid JWT');
+    return;
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(req.headers)) if (typeof value === 'string') headers.set(name, value);
+  const request = new Request(`http://127.0.0.1:${config.port}/functions/v1/demo-weekly-run`, {
+    method: req.method,
+    headers,
+    body: req.method === 'GET' || req.method === 'HEAD' ? null : Buffer.concat(chunks),
+  });
+  const response = await demoWeeklyRun(request, {
+    SUPABASE_URL: `http://127.0.0.1:${config.port}`,
+    SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE_KEY,
+    SUPABASE_ANON_KEY: ANON_KEY,
+  });
+  res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
+  res.end(Buffer.from(await response.arrayBuffer()));
+};
+
+// ---------------------------------------------------------------------------------------------
+// /functions/v1/demo-sign-up: the demonstration build's sign-up, run in-process. Like the deployed function
+// (verify_jwt off), it takes requests without a session and checks everything itself.
+// ---------------------------------------------------------------------------------------------
+const serveDemoSignUp = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(req.headers)) if (typeof value === 'string') headers.set(name, value);
+  const request = new Request(`http://127.0.0.1:${config.port}/functions/v1/demo-sign-up`, {
+    method: req.method,
+    headers,
+    body: req.method === 'GET' || req.method === 'HEAD' ? null : await readBody(req),
+  });
+  const response = await demoSignUp(request, {
+    SUPABASE_URL: `http://127.0.0.1:${config.port}`,
+    SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE_KEY,
+    SUPABASE_ANON_KEY: ANON_KEY,
+  });
+  res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
+  res.end(Buffer.from(await response.arrayBuffer()));
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -490,6 +616,14 @@ const server = createServer((req, res) => {
     }
     if (pathname.startsWith('/auth/v1')) {
       await handleAuth(req, res, pathname.slice('/auth/v1'.length) || '/', url.searchParams);
+      return;
+    }
+    if (pathname === '/functions/v1/demo-weekly-run') {
+      await serveDemoWeeklyRun(req, res);
+      return;
+    }
+    if (pathname === '/functions/v1/demo-sign-up') {
+      await serveDemoSignUp(req, res);
       return;
     }
     if (pathname === '/__local/codes' && req.method === 'GET') {

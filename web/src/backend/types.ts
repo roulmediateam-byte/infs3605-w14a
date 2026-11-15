@@ -290,6 +290,16 @@ export type AuthEvent = 'SIGNED_IN' | 'SIGNED_OUT' | 'TOKEN_REFRESHED' | 'USER_U
  * Everything the screens need from the backend. The Supabase adapter is the real one; a preview adapter can run
  * the same migrations in the browser for a click-through with Test data.
  */
+/** Where the preview keeps the demo's data (src/backend/preview-store.ts). */
+export interface PreviewStorage {
+  /** "stored": kept in this browser, so a reload carries on; "memory": only until a reload. */
+  mode: 'stored' | 'memory';
+  /** Why the data isn't kept: this browser can't store it, or the demo is open in another tab. */
+  reason?: 'unavailable' | 'other-tab';
+  /** True when this visit opened data kept from an earlier one. */
+  reused: boolean;
+}
+
 /** Extras only the in-browser preview has: there is no email, no file to hand and no scheduled job. */
 export interface PreviewTools {
   /** The sign-in code, shown on screen because the preview sends no email. */
@@ -298,18 +308,44 @@ export interface PreviewTools {
   sampleImportFile(): Promise<File>;
   /** Sunday's drafting run, with the fallback templates (the preview has no AI). */
   runWeeklyRun(): Promise<{ drafted: number }>;
+  readonly storage: PreviewStorage;
+  /** Deletes the demo's data and the preview's own keys in this browser, then reloads with fresh Test data. */
+  resetDemo(): Promise<void>;
+}
+
+/** How a drafting run started from the app went (the preview's "Run it now", or the demonstration build's). */
+export interface DraftingRunResult {
+  drafted: number;
+  /** True when Claude was asked for the wording; false when the fixed templates were used. */
+  claude: boolean;
 }
 
 export interface Backend {
   readonly kind: 'supabase' | 'preview';
   readonly preview?: PreviewTools;
+  /**
+   * The demonstration build only: Sunday's drafting run, now, for a Test data business the person owns
+   * (supabase/functions/demo-weekly-run). Absent in every other build.
+   */
+  runDraftingNow?(businessId: string): Promise<DraftingRunResult>;
+  /**
+   * The demonstration build's sign-up only: gives a signed-in demonstration account its own Test data business if it
+   * has none (supabase/functions/demo-sign-up, "ensure"). True when it has one now. Absent in every other build.
+   */
+  ensureDemoBusiness?(): Promise<boolean>;
   auth: {
     currentUser(): Promise<AuthUser | null>;
     onChange(listener: (event: AuthEvent, user: AuthUser | null) => void): () => void;
     sendCode(email: string, redirectTo: string): Promise<void>;
     verifyCode(email: string, code: string): Promise<AuthUser>;
+    /** Signs in with a pasted sign-in link, or the address it opened (lib/sign-in-link.ts). The real backend only. */
+    signInWithLink?(pasted: string): Promise<AuthUser>;
     /** Why the emailed sign-in link the page opened with didn't work, once; null if it worked or there was none. */
     takeLinkProblem?(): string | null;
+    /** The demonstration build's sign-up only: a new account with a made-up email and a password, then signed in. */
+    signUp?(email: string, password: string): Promise<AuthUser>;
+    /** The demonstration build's sign-up only: sign in with the email and password the account was made with. */
+    signInWithPassword?(email: string, password: string): Promise<AuthUser>;
     /** Forgets the session on this device, whatever the network does. */
     signOut(): Promise<void>;
   };

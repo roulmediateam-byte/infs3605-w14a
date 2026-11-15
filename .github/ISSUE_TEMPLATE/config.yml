@@ -1,1 +1,8 @@
 blank_issues_enabled: false
+contact_links:
+  - name: New to the team? Read the first-day guide
+    url: https://github.com/roulmediateam-byte/infs3605-w14a/blob/main/docs/first-day.md
+    about: Install, see the app in 5 minutes, make a change, the rules that matter and who to ask.
+  - name: Something broke in the running service? Check the runbook
+    url: https://github.com/roulmediateam-byte/infs3605-w14a/blob/main/docs/runbook.md#when-something-goes-wrong
+    about: Symptoms, checks and fixes. A security or personal-data problem goes to the Scrum Master and Dev lead, never to an issue (SECURITY.md).

@@ -1,0 +1,13 @@
+# LF line endings for every text file, on every computer. This overrides each person's core.autocrlf setting, so
+# Git for Windows can't check bash scripts out with CRLF endings, which break them ("bash\r").
+* text=auto eol=lf
+*.sh text eol=lf
+
+# Binary files: never convert or diff as text.
+*.png binary
+*.jpg binary
+*.ico binary
+*.wasm binary
+*.woff2 binary
+*.xlsx binary
+*.zip binary

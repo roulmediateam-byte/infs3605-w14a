@@ -1,0 +1,70 @@
+/* Import (UI-08): styles only this screen uses. The shared stepper, drop zone and table styles stay in styles.css. */
+
+/* A file problem sits inside the drop zone, above the button, where the person is looking. The icon and the words
+   carry the meaning; the tint only draws the eye (WCAG 1.4.1). Red-700 on red-50 is 5.91:1. */
+.import-file-error {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--critical-border);
+  border-radius: var(--radius-lg);
+  background: var(--critical-bg);
+  text-align: left;
+}
+
+.import-file-error .field-error {
+  margin-top: 0;
+}
+
+/* Dragging needs a mouse or trackpad, so the drag hint shows only with a fine pointer. */
+.import-drag-hint {
+  display: none;
+}
+
+@media (pointer: fine) {
+  .import-drag-hint {
+    display: block;
+  }
+}
+
+/* "Columns matched automatically." with a full-size (44 px tall) Change columns button beside it. Without side
+   padding, the button's words line up with the caption when a phone wraps it onto its own line. */
+.import-columns {
+  gap: 0 var(--space-2);
+}
+
+.import-columns .btn-quiet {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* The preview scrolls sideways inside its box. While more of it is off to the right, the right edge fades;
+   scrollbars that take room (--bar-right, --bar-bottom) stay clear of the fade. */
+.import-scroll {
+  position: relative;
+}
+
+.import-scroll[data-more]::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  right: calc(1px + var(--bar-right, 0px));
+  bottom: calc(1px + var(--bar-bottom, 0px));
+  width: var(--space-7);
+  border-radius: 0 calc(var(--radius-xl) - 1px) calc(var(--radius-xl) - 1px) 0;
+  background: linear-gradient(to right, transparent, var(--canvas));
+  pointer-events: none;
+}
+
+.import-scroll-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.import-scroll-hint svg {
+  flex: none;
+}
+
+/* Done: a green tile in a card no wider than the sheets. */
+.import-done {
+  max-width: 560px;
+}

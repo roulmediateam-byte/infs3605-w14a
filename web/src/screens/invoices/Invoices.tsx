@@ -1,13 +1,13 @@
 // UI-07 Invoices: find any invoice and its status. A search field and filter chips; each row shows the client,
 // invoice number, the amount right-aligned and a status chip; a tap opens the invoice's sheet.
-import { Search } from 'lucide-react';
+import { Ban, CalendarDays, FileText, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useInvoices } from '../../app/queries.ts';
 import { Link, navigate, useLocation } from '../../app/router.tsx';
 import type { DisplayStatus, InvoiceListRow } from '../../backend/types.ts';
 import { formatAud } from '../../lib/money.ts';
 import { invoiceChip } from '../../lib/words.ts';
-import { Chip, Choices, EmptyState, LoadingBlock, PageTitle, TextField } from '../../ui/controls.tsx';
+import { Avatar, Chip, Choices, EmptyState, LoadingBlock, PageTitle, TextField } from '../../ui/controls.tsx';
 import { NoData } from '../../ui/QueryState.tsx';
 import { InvoiceSheet } from './InvoiceSheet.tsx';
 
@@ -69,6 +69,7 @@ export const InvoicesScreen = () => {
       ) : invoices.data.length === 0 ? (
         <EmptyState
           title="No invoices yet"
+          icon={FileText}
           action={
             <Link className="btn btn-primary" to="import">
               Import invoices
@@ -81,17 +82,15 @@ export const InvoicesScreen = () => {
         <>
           <div className="stack">
             <TextField
-              label={
-                <span className="row">
-                  <Search size={16} strokeWidth={1.5} aria-hidden="true" /> Search by client or invoice number
-                </span>
-              }
+              label="Search by client or invoice number"
+              icon={Search}
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
             <Choices
               legend="Show"
+              scroll
               name="invoice-filter"
               value={filter === 'due' ? 'all' : filter}
               options={FILTERS.map((f) => ({ value: f.value, label: `${f.label} (${counts[f.value] ?? 0})` }))}
@@ -109,19 +108,23 @@ export const InvoicesScreen = () => {
                 const chip = invoiceChip(invoice);
                 return (
                   <li key={invoice.id}>
-                    <button type="button" className="list-row" onClick={() => setOpenId(invoice.id)}>
+                    {/* The status sits under the client's name, after the amount in reading order. */}
+                    <button type="button" className="list-row row-grid" onClick={() => setOpenId(invoice.id)}>
+                      <Avatar name={invoice.client_name} />
                       <span className="list-main">
                         <span className="list-title" style={{ display: 'block' }}>
                           {invoice.client_name}
                         </span>
-                        <span className="list-meta">
+                        <span className="list-meta" style={{ display: 'block' }}>
                           Invoice {invoice.invoice_number}
                           {invoice.client_paused ? ' · Paused' : ''}
                         </span>
                       </span>
-                      <span className="list-end">
-                        <span className="amount">{formatAud(invoice.amount_due_cents)}</span>
-                        <Chip tone={chip.tone}>{chip.label}</Chip>
+                      <span className="amount">{formatAud(invoice.amount_due_cents)}</span>
+                      <span className="row-status">
+                        <Chip tone={chip.tone} icon={chip.tone === 'neutral' ? (invoice.display_status === 'closed' ? Ban : CalendarDays) : undefined}>
+                          {chip.label}
+                        </Chip>
                       </span>
                     </button>
                   </li>

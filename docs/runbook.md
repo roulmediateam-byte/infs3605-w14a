@@ -5,16 +5,17 @@ How to set up, run and recover the service. Every step uses Test data unless an 
 ## Set up a project (sprint 1, about 30 minutes)
 
 1. Create two Supabase projects in the Sydney region (ap-southeast-2, NFR-17): `getpaid-dev` (Test data only) and `getpaid-pilot` (owner testing). The free plan allows two active projects.
-2. Link and push the schema: `supabase link --project-ref <ref>` then `supabase db push`. Do not run `seed.sql` on the pilot project.
+2. Link and push the schema: `supabase link --project-ref <ref>` then `supabase db push`. Do not run `seed.sql` on the pilot project. For the dev project, Actions > "Set up the dev database" does this from GitHub instead, with the seed (Test data), and needs no command-line tools; it uses the secrets in step 6.
 3. In Authentication: turn off new sign-ups; set the one-time link expiry to 3,600 seconds (FR-01, NFR-07); set the site URL to the GitHub Pages address; set custom SMTP to Resend (the built-in sender allows only 2 emails an hour); edit the magic-link and the invite-user email templates so each carries both the link (`{{ .ConfirmationURL }}`) and the 6-digit code (`{{ .Token }}`), because phones often open links in an email app's own browser. The team invites owners from Authentication, so the invite template is the first email an owner sees.
 4. In Resend: add the sending domain and publish its SPF, DKIM and DMARC records (NFR-18). Send a test briefing to Gmail and Outlook and check it lands in the inbox.
 5. In the Claude Console: create an API key and set a monthly spending limit (proposed A$20, NFR-15).
 6. In GitHub, Settings > Secrets and variables > Actions. Each job runs once per project it targets, so the dev and pilot projects each have their own address and key:
    - secrets `SUPABASE_SERVICE_ROLE_KEY` (dev), `SUPABASE_SERVICE_ROLE_KEY_PILOT`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `ALERT_EMAIL`;
+   - for "Set up the dev database": secrets `DEV_DB_URL` (the dev project's "Session pooler" connection string from Connect, with the database password; GitHub's runners can't reach the direct connection, which needs IPv6), `DEMO_OWNER_EMAIL` and `DEMO_CHECKER_EMAIL` (team inboxes; plus-addresses of one inbox work). Until custom SMTP is set up, Supabase's built-in sender only mails the project team's own addresses, so use the owner's Supabase sign-in address as `DEMO_OWNER_EMAIL`;
    - variables `SUPABASE_URL` (dev), `SUPABASE_URL_PILOT`, `APP_URL` (the demo build), `APP_URL_PILOT` (the owners' build), `EMAIL_FROM`, `AI_MODEL` (`claude-haiku-5-5`);
    - variable `JOB_TARGETS`: `["dev"]` until owner testing starts on Mon 2 Nov 2026, then `["dev","pilot"]`. The dev project keeps running after that, because the video (Thu 12 Nov) and the Week 10 Showcase are demonstrated on it, and its daily health check stops the free database from pausing.
 7. Set the variable `JOBS_ENABLED` to `true` to switch the schedules on. Set it to `false` to stop them at once, on both projects.
-8. Protect `main`: require a pull request, one approving review and the CI checks (NFR-08). Turn on Dependabot alerts.
+8. Protect `main`: require a pull request, one approving review and the CI checks (NFR-08). Turn on Dependabot alerts. The exact settings are in the "Owner settings checklist" below.
 9. Web app builds (SET-08): until Mon 2 Nov 2026 both builds use the dev project. From then on the owners' build at the site root uses the pilot project, and the demo build under `/demo/` stays on dev. Add both addresses to each project's redirect list. The navigation shows a screen only once it has passed its tests, so no build has a dead link. Steps in "Publish the web app" below.
 
 ## Publish the web app
@@ -28,12 +29,31 @@ GitHub Pages serves the app; the site is public even from a private repository, 
    - `PILOT_SUPABASE_URL` and `PILOT_SUPABASE_PUBLISHABLE_KEY` on Mon 2 Nov 2026. Until they exist, the site root uses the dev project too.
    - `SUPPORT_EMAIL`, the team address behind "Contact the team" under More. It sends the business code only.
    - `DEMO_HIDE_SCREENS`, for example `invoices,clients,settings`, to leave screens out of the demonstration build's navigation. Empty shows every screen.
+   - `SIGN_IN_EMAIL`: `link` while the project sends Supabase's built-in email. On a new free project its templates can't change without custom SMTP, so the email holds a link and no code. Sign-in then leads with the link and also takes it pasted, so a wrong Site URL or a phone's email app can't strand anyone. Leave it empty once the email carries the code.
 4. In each Supabase project, Authentication > URL Configuration: add `https://OWNER.github.io/REPO/` and `https://OWNER.github.io/REPO/demo/` to the redirect URLs. The sign-in link returns to the build the person signed in from, and Supabase sends it only to listed addresses. Set the Site URL to the root until Mon 2 Nov 2026; then set the dev project's to `/demo/`.
 5. Merge to `main`: any change under `web/` publishes both builds. To publish without a change, run Actions > "Deploy the web app" > Run workflow.
 6. After each publish, open both builds on a phone and sign in with a code. Check that the browser console shows no "Content Security Policy" errors and that a briefing email's Review link opens the right draft.
 7. To roll back, revert the pull request; the site republishes from `main`.
 
 The workflow refuses to publish when the pilot address and key aren't set together, or when a key looks like a secret or service role key. Every Pages site on one account shares one web address (`OWNER.github.io`), and pages there can read each other's browser storage. So publish from an account or organisation with no other Pages sites, or give the site its own custom domain.
+
+## Owner settings checklist
+
+Only the account that owns the repository, `roulmediateam-byte`, can change these settings: collaborators have write access only. "Needs Pro" means the setting works on this private repository only once that account has GitHub Pro.
+
+1. **GitHub Pro on the owning account (the Pro item itself).** Apply through the GitHub Student Developer Pack, then confirm the plan on the account's billing page. Actions minutes and plan features follow the account that owns the repository, not the person who pushes. Pro gives 3,000 Actions minutes a month instead of 2,000, protected branches and GitHub Pages for a private repository.
+2. **Actions usage alerts and a budget (any plan).** Billing and licensing > Budgets and alerts: under "Included usage alerts", tick "Receive alerts when my included usage reaches 90% and 100%". If a payment method is ever added, also create an Actions budget with "Stop usage when budget limit is reached". Without a payment method, every workflow stops when the month's minutes run out, the scheduled briefings included.
+3. **Protect `main` (needs Pro), after the CI change that adds the `checks` job has merged.** In Settings > Branches, add a branch protection rule for `main`:
+   - Require a pull request before merging, with 1 approval.
+   - Require status checks to pass: `checks`, `database` and `web`. They can be picked once CI has run with these names. Never require "Prompt evaluation": it runs only when the prompt changes, so other pull requests would wait for it forever.
+   - Leave "Require branches to be up to date before merging" off. Otherwise every merge makes each open pull request run CI again.
+   - Require conversation resolution before merging.
+   - Leave force pushes and deletions off.
+   - Leave "Do not allow bypassing the above settings" off, so admins are exempt and the owner keeps an emergency merge in demonstration week.
+4. **Squash merging only (any plan).** Settings > General > Pull Requests: keep "Allow squash merging" and choose the pull request title as its default message. Turn off merge commits and rebase merging.
+5. **Automatically delete head branches (any plan).** On the same page, tick "Automatically delete head branches".
+6. **Dependabot alerts and security updates (any plan).** In the repository's security settings, turn both on. Security fixes keep arriving while version updates are paused.
+7. **Resume Dependabot version updates after Thu 29 Oct 2026 (any plan).** In `.github/dependabot.yml`, restore `open-pull-requests-limit` to 5 on all three entries, through a pull request. Dependabot opens updates again at its next Monday run, at 8:00 am Sydney time.
 
 ## Board
 
@@ -97,10 +117,16 @@ AT-10 needs a real Sunday run and a real Monday briefing. Reset the dev project 
 
 The seed's addresses end in `.test`, which never receives mail, so point them at team inboxes first.
 
+Without GitHub secrets: the Edge Function `demo-weekly-run` runs step 6 from the app itself. Deploy it to the dev project only: `supabase functions deploy demo-weekly-run --use-api --project-ref <dev ref>`. The demonstration build (`VITE_DEMO_TOOLS=on`) then shows the owner of a Test data business "Try the Week 7 demo" on Home and "Run it now" under More. Either runs the scheduled job's own code, forced, with the project's service key, which never reaches the browser. The function refuses anyone but the business's active owner, and any business that isn't Test data. Claude writes the wording once `ANTHROPIC_API_KEY` is set under Edge Functions > Secrets; until then the fixed templates do.
+
+With sign-up (`VITE_DEMO_SIGN_UP=on`, the live `/demo/` build since Tue 27 Oct 2026), nobody needs a team inbox. Anyone opens the demonstration build, taps "Create an account", makes up an email ending in `.test` (for example `sam@demo.test`) and a password of 8 or more characters, and lands on Home with their own copy of the seed's Test data business. Nothing touches anyone else's copy. On Import, "Use the Week 7 demonstration file" builds the file from that copy, so its dates always match. The Edge Function `demo-sign-up` does this with the service key: deploy it to the dev project only, with JWT checking off (`supabase functions deploy demo-sign-up --no-verify-jwt --use-api --project-ref <dev ref>`), after migration 8 (`20261027090000_demo_sign_up.sql`). It takes made-up addresses only (reserved domains such as `.test`), so no real address is kept, and it sends no email. These accounts can't accept invitations. It allows 300 accounts, 60 an hour and 10 copies per account, and closes after Wed 25 Nov 2026; each copy has `delete_after` Wed 25 Nov 2026 (PD-7). Turn it off by deleting the function in the dashboard. The steps below are for the seed's own business and team inboxes.
+
+Steps 1 to 4 in one go: Actions > "Set up the dev database" > Run workflow, type `RESET`, then download "demo-import" from the run's artifacts and sign in as in step 3. Run it again to start a rehearsal over; sign in again afterwards. The manual steps:
+
 1. On the dev project, reset to the seed: `supabase db reset --linked` (dev only), or apply `seed.sql` in the SQL editor.
 2. Point the seed's owner and checker at team inboxes: `psql "<dev connection string>" -v owner_email='<team inbox>' -v checker_email='<team inbox>' -f scripts/demo-emails.sql`. Plus-addresses of one inbox work. Never commit the addresses.
-3. Add both addresses as users (Authentication > Add user), then open the demonstration build (`https://OWNER.github.io/REPO/demo/`) on the demonstration phone and sign in as the owner with the 6-digit code.
+3. Add both addresses as users (Authentication > Add user), then open the demonstration build (`https://OWNER.github.io/REPO/demo/`) on the demonstration phone and sign in as the owner with the 6-digit code. With `SIGN_IN_EMAIL=link`, open the emailed link on that phone instead, or paste it into the sign-in screen.
 4. Generate the import file: `psql "<dev connection string>" -f scripts/make-demo-csv.sql > demo-import.csv`. It closes 1043, lowers 1051 by A$450.00 (so its draft is cancelled and flagged), skips one bad row and adds 1078. After the import, Review holds 3 drafts: 1066, 1056 and 1062.
 5. At 1:30 pm, run "Briefing" on dev with the seed business's id (`0d5e0000-0000-4000-8000-000000000001`). Force is needed only if a briefing already went that day.
-6. During the demonstration, the evidence lead runs "Weekly run" on dev with the seed business's id and force ticked, and the narrator says so: in real use it runs every Sunday at 9:07 pm. Force is needed because the seed already holds this week's run. 1051 is redrafted at A$8,000.00, so Review holds 4 drafts.
+6. During the demonstration, the evidence lead runs "Weekly run" on dev with the seed business's id and force ticked, and the narrator says so: in real use it runs every Sunday at 9:07 pm. Without GitHub secrets, the driver taps "Run Sunday's drafting" on Home instead. Force is needed because the seed already holds this week's run. 1051 is redrafted at A$8,000.00, so Review holds 4 drafts.
 7. Follow the app flow's demonstration path. If the run is slow, carry on and return to 1051 at the end.

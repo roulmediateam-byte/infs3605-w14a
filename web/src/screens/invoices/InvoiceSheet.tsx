@@ -32,7 +32,7 @@ export const InvoiceSheet = ({ invoiceId, onClose }: { invoiceId: string; onClos
 
   const undo = async () => {
     const result = await run('undo', () => backend.undoMarkPaid(invoiceId));
-    if (!result.ok) show({ text: result.error.message });
+    if (!result.ok) show({ text: result.error.message, tone: 'critical' });
     else show({ text: "Open again. Cancelled reminders stay cancelled; Sunday's run drafts afresh." });
   };
 
@@ -63,7 +63,8 @@ export const InvoiceSheet = ({ invoiceId, onClose }: { invoiceId: string; onClos
   const entries = history.data?.pages.flat() ?? [];
 
   return (
-    <Sheet open onClose={onClose} title={invoice ? `Invoice ${invoice.invoice_number}` : 'Invoice'} busy={busy !== null}>
+    // Mostly for reading: focus starts on the title, not the "Paid on" date, which a phone would open as a picker.
+    <Sheet open onClose={onClose} title={invoice ? `Invoice ${invoice.invoice_number}` : 'Invoice'} busy={busy !== null} initialFocus="title">
       {invoices.data === undefined ? (
         <NoData
           query={invoices}
@@ -81,9 +82,7 @@ export const InvoiceSheet = ({ invoiceId, onClose }: { invoiceId: string; onClos
           <div className="stack-sm">
             <p className="list-title">{invoice.client_name}</p>
             <div className="row-wrap">
-              <span className="t-figure" style={{ fontSize: 28 }}>
-                {formatAud(invoice.amount_due_cents)}
-              </span>
+              <span className="t-figure">{formatAud(invoice.amount_due_cents)}</span>
               <Chip tone={invoiceChip(invoice).tone}>{invoiceChip(invoice).label}</Chip>
             </div>
             <dl className="stack-sm">
@@ -108,8 +107,8 @@ export const InvoiceSheet = ({ invoiceId, onClose }: { invoiceId: string; onClos
           {invoice.status === 'closed' ? <p className="note">This invoice is closed because it wasn't in your latest import.</p> : null}
 
           {invoice.status === 'open' && canAct ? (
-            <section className="card stack-sm" aria-labelledby="paid-heading">
-              <h3 className="t-heading" id="paid-heading">
+            <section className="panel stack-sm" aria-labelledby="paid-heading">
+              <h3 className="t-subheading" id="paid-heading">
                 Mark paid
               </h3>
               <p className="t-caption">Any waiting reminder for this invoice is cancelled, and it leaves the briefing.</p>
@@ -138,7 +137,7 @@ export const InvoiceSheet = ({ invoiceId, onClose }: { invoiceId: string; onClos
           ) : null}
 
           <section aria-labelledby="history-heading" className="stack-sm">
-            <h3 className="t-heading" id="history-heading">
+            <h3 className="t-subheading" id="history-heading">
               History
             </h3>
             {history.data === undefined ? (

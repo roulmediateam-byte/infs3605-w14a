@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "EditorConfig.EditorConfig",
+    "ms-playwright.playwright",
+    "vitest.explorer",
+    "github.vscode-pull-request-github"
+  ]
+}

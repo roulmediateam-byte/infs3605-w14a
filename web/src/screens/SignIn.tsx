@@ -1,34 +1,115 @@
 // UI-01 Sign in (FR-01). Invited people only, with no password: the email carries a 6-digit code and a link, and the
 // screen leads with the code, because phones often open email links in the email app's own browser (TRD, Identity).
+// Where the email carries only a link (config.signInEmail "link": Supabase's built-in email on a free project), the
+// screen leads with the link instead and takes it pasted, or the address of the page it opened, on this device.
+// The demonstration build (config.demoSignUp) has no email at all: anyone creates an account with a made-up email and
+// a password instead (PasswordSignIn.tsx).
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { config } from '../app/config.ts';
 import { useBackend, useSession } from '../app/session.tsx';
 import { toHref } from '../app/router.tsx';
-import { toAppError } from '../backend/errors.ts';
-import type { AuthUser } from '../backend/types.ts';
+import { AppError, MESSAGES, toAppError } from '../backend/errors.ts';
+import type { AuthUser, PreviewStorage } from '../backend/types.ts';
 import { KEYS, readItem, writeItem } from '../lib/storage.ts';
-import { Banner, Button, PageTitle, TextField } from '../ui/controls.tsx';
-import { AppMark } from '../ui/AppMark.tsx';
+import { BrandFrame } from '../ui/BrandFrame.tsx';
+import { Banner, Button, FormError, PageTitle, TextField } from '../ui/controls.tsx';
+import { firstPasswordMode, PasswordSignIn, usesPasswordSignIn, type PasswordMode } from './PasswordSignIn.tsx';
 
 const RESEND_SECONDS = 60;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** The preview's two Test people (supabase/seed.sql), one tap each. */
+const PREVIEW_PEOPLE = [
+  { email: 'owner@example.test', label: 'Sign in as the owner', hint: 'Alex reviews the drafts and sends them.' },
+  { email: 'checker@example.test', label: 'Sign in as the checker', hint: 'Jo checks the drafts. Alex sends them.' },
+] as const;
+
+/** Why the preview can't keep the demo's data in this tab, said once, on the way in. */
+const storageNotice = (storage: PreviewStorage): string | null => {
+  if (storage.mode === 'stored') return null;
+  return storage.reason === 'other-tab'
+    ? "The demo is open in another tab, so this tab can't keep its changes. Close the other tab, then reload this one."
+    : "This browser can't keep the demo's data, so a reload starts again.";
+};
+
+/** Preview only: sign in as a Test person in one tap, through the same code flow as the form below. */
+const PreviewPeople = () => {
+  const backend = useBackend();
+  const { signedIn } = useSession();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const signInAs = async (email: string) => {
+    if (busy) return;
+    setBusy(email);
+    setError(null);
+    try {
+      await backend.auth.sendCode(email, `${window.location.origin}${toHref('')}`);
+      const code = backend.preview?.codeFor(email);
+      if (!code) throw new AppError('unknown', MESSAGES.unknown);
+      const user = await backend.auth.verifyCode(email, code);
+      writeItem(KEYS.signInEmail, email);
+      await signedIn(user);
+    } catch (caught) {
+      setError(toAppError(caught).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="card stack" aria-labelledby="preview-people-heading">
+      <h2 className="t-subheading" id="preview-people-heading">
+        Try it with made-up Test data
+      </h2>
+      {PREVIEW_PEOPLE.map((person, index) => (
+        <div className="stack-sm" key={person.email}>
+          <Button
+            variant={index === 0 ? 'primary' : 'secondary'}
+            size="lg"
+            block
+            busy={busy === person.email}
+            busyLabel="Signing in…"
+            unavailable={busy !== null && busy !== person.email}
+            aria-describedby={`preview-person-${index}`}
+            onClick={() => void signInAs(person.email)}
+          >
+            {person.label}
+          </Button>
+          <p className="t-caption" id={`preview-person-${index}`}>
+            {person.hint}
+          </p>
+        </div>
+      ))}
+      <FormError message={error} />
+    </section>
+  );
+};
 
 export const CodeSignIn = ({
   lockedEmail,
   onSignedIn,
   autoFocus = true,
+  quietSubmit = false,
 }: {
   lockedEmail?: string;
   onSignedIn: (user: AuthUser) => void | Promise<void>;
   autoFocus?: boolean;
+  /** The preview's sign-in leads with its one-tap buttons, so the form's first button steps back to secondary. */
+  quietSubmit?: boolean;
 }) => {
   const backend = useBackend();
+  // The email holds only a link: lead with it, and take it pasted (lib/sign-in-link.ts).
+  const linkOnly = config.signInEmail === 'link' && !backend.preview && typeof backend.auth.signInWithLink === 'function';
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState(lockedEmail ?? readItem(KEYS.signInEmail) ?? '');
   const [code, setCode] = useState('');
+  const [link, setLink] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'send' | 'verify' | null>(null);
   const [wait, setWait] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);
+  const linkRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -38,8 +119,8 @@ export const CodeSignIn = ({
   }, [wait]);
 
   useEffect(() => {
-    if (step === 'code') codeRef.current?.focus();
-  }, [step]);
+    if (step === 'code') (linkOnly ? linkRef : codeRef).current?.focus();
+  }, [step, linkOnly]);
 
   const sendCode = async (event?: FormEvent) => {
     event?.preventDefault();
@@ -61,11 +142,32 @@ export const CodeSignIn = ({
       setWait(RESEND_SECONDS);
     } catch (caught) {
       const appError = toAppError(caught);
-      setError(appError.message);
+      setError(linkOnly && appError.kind === 'rate-limit' ? MESSAGES.emailLimit : appError.message);
       if (appError.kind === 'rate-limit') {
         setStep('code');
         setWait(RESEND_SECONDS);
       }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const finishWithLink = async (value: string) => {
+    if (busy || !backend.auth.signInWithLink) return;
+    if (!value.trim()) {
+      setError('Paste the sign-in link, or the address of the page it opened.');
+      linkRef.current?.focus();
+      return;
+    }
+    setBusy('verify');
+    setError(null);
+    try {
+      const user = await backend.auth.signInWithLink(value);
+      await onSignedIn(user);
+    } catch (caught) {
+      setError(toAppError(caught).message);
+      linkRef.current?.focus();
+      linkRef.current?.select();
     } finally {
       setBusy(null);
     }
@@ -111,9 +213,77 @@ export const CodeSignIn = ({
           error={error}
           hint="We use your email only to sign you in."
         />
-        <Button type="submit" variant="primary" size="lg" block busy={busy === 'send'} busyLabel="Sending…">
-          Email me a code
+        <Button type="submit" variant={quietSubmit ? 'secondary' : 'primary'} size="lg" block busy={busy === 'send'} busyLabel="Sending…">
+          {linkOnly ? 'Email me a sign-in link' : 'Email me a code'}
         </Button>
+      </form>
+    );
+  }
+
+  if (linkOnly) {
+    return (
+      <form
+        className="stack"
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          void finishWithLink(link);
+        }}
+      >
+        <p>
+          We sent a sign-in link to <strong>{email}</strong>. It works once, for 1 hour. Open the email on this device and tap the link.
+        </p>
+        <Banner>
+          If the link opens a page that won't load, copy that page's whole address and paste it here. Or copy the link itself: press and hold it on a phone,
+          or right-click it on a computer.
+        </Banner>
+        <TextField
+          ref={linkRef}
+          label="Sign-in link"
+          name="sign-in-link"
+          type="url"
+          inputMode="url"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={link}
+          error={error}
+          hint="It starts with http."
+          onChange={(event) => setLink(event.target.value)}
+          onPaste={(event) => {
+            // A pasted link signs in at once, as a pasted code does.
+            const pasted = event.clipboardData.getData('text');
+            if (pasted.trim()) {
+              event.preventDefault();
+              setLink(pasted.trim());
+              void finishWithLink(pasted);
+            }
+          }}
+        />
+        <Button type="submit" variant="primary" size="lg" block busy={busy === 'verify'} busyLabel="Signing in…">
+          Sign in with the link
+        </Button>
+        <div className="row-wrap">
+          <Button variant="quiet" unavailable={wait > 0 || busy !== null} onClick={() => void sendCode()} aria-describedby="resend-wait">
+            Send a new link
+          </Button>
+          {!lockedEmail ? (
+            <Button
+              variant="quiet"
+              onClick={() => {
+                setStep('email');
+                setError(null);
+              }}
+            >
+              Use a different email
+            </Button>
+          ) : null}
+        </div>
+        {wait > 0 ? (
+          <p id="resend-wait" className="t-caption" aria-live="off">
+            You can ask for a new link in {wait} {wait === 1 ? 'second' : 'seconds'}.
+          </p>
+        ) : null}
       </form>
     );
   }
@@ -134,10 +304,14 @@ export const CodeSignIn = ({
       </p>
       {previewCode ? (
         <Banner>
-          Preview: no email is sent, so here is the code: <strong className="num">{previewCode}</strong>.{' '}
-          <button type="button" className="btn btn-quiet" style={{ minHeight: 24, padding: 0 }} onClick={() => void verify(previewCode)}>
-            Use it
-          </button>
+          <div className="stack-sm">
+            <p>
+              Preview: no email is sent, so here is the code: <strong className="num">{previewCode}</strong>.
+            </p>
+            <Button variant="secondary" unavailable={busy !== null} onClick={() => void verify(previewCode)}>
+              Use it
+            </Button>
+          </div>
         </Banner>
       ) : null}
       <TextField
@@ -189,34 +363,47 @@ export const CodeSignIn = ({
 export const SignInScreen = ({ next }: { next: string | null }) => {
   const { signedIn, notice } = useSession();
   const backend = useBackend();
+  const passwordSignIn = usesPasswordSignIn(backend);
+  const [mode, setMode] = useState<PasswordMode>(firstPasswordMode);
+  // With a password, the tabs below name the action, so the heading doesn't repeat it.
+  const title = !passwordSignIn ? 'Sign in' : mode === 'create' ? 'Try Payprentice' : 'Welcome back';
+  const documentTitle = passwordSignIn && mode === 'create' ? 'Create an account' : 'Sign in';
   // An emailed link that had expired or was used lands here: say so once (App Flow, flow rule 5: no dead ends).
   const [linkProblem] = useState(() => backend.auth.takeLinkProblem?.() ?? null);
   useEffect(() => {
     // Keep the deep link for a sign-in that finishes through the emailed link instead of the code.
     if (next) writeItem(KEYS.nextAfterSignIn, next);
   }, [next]);
+  const storageLine = backend.preview ? storageNotice(backend.preview.storage) : null;
   return (
-    <main className="sign-in" id="main">
-      <div className="brand">
-        <AppMark />
-        <span>Get-Paid Apprentice</span>
-      </div>
+    <BrandFrame>
       <div className="stack-lg">
-        <PageTitle documentTitle="Sign in">Sign in</PageTitle>
+        <PageTitle documentTitle={documentTitle}>{title}</PageTitle>
         {notice ? <Banner>{notice}</Banner> : null}
         {linkProblem ? (
           <Banner tone="warning" role="alert">
             {linkProblem}
           </Banner>
         ) : null}
-        {backend.preview ? (
-          <Banner>
-            Preview with Test data. Sign in as <strong>owner@example.test</strong> to review and send, or as <strong>checker@example.test</strong> to see
-            the checker's view.
+        {storageLine ? (
+          <Banner tone={backend.preview?.storage.reason === 'other-tab' ? 'warning' : 'info'} role="status">
+            {storageLine}
           </Banner>
         ) : null}
-        <CodeSignIn onSignedIn={(user) => signedIn(user)} />
+        {backend.preview ? (
+          <>
+            <PreviewPeople />
+            <p className="t-secondary">
+              Or sign in with an email: <strong>owner@example.test</strong> or <strong>checker@example.test</strong>.
+            </p>
+          </>
+        ) : null}
+        {passwordSignIn ? (
+          <PasswordSignIn mode={mode} onModeChange={setMode} onSignedIn={(user) => signedIn(user)} />
+        ) : (
+          <CodeSignIn onSignedIn={(user) => signedIn(user)} autoFocus={!backend.preview} quietSubmit={Boolean(backend.preview)} />
+        )}
       </div>
-    </main>
+    </BrandFrame>
   );
 };

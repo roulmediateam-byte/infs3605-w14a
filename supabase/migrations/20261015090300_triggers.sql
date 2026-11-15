@@ -1,4 +1,4 @@
--- Get-Paid Apprentice · migration 4 of 7 · triggers
+-- Payprentice · migration 4 of 7 · triggers
 -- Rules that hold for every writer, including the service role and team admins:
 --   * the activity log is append-only (FR-21);
 --   * a draft moves only along its lifecycle, and its facts and approved text never change (FR-15, FR-17, BR-02);

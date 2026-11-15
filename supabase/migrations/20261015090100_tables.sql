@@ -1,4 +1,4 @@
--- Get-Paid Apprentice · migration 2 of 7 · tables
+-- Payprentice · migration 2 of 7 · tables
 -- Ten tables. Every business-owned row carries business_id, so one database can hold many businesses and a
 -- bookkeeper can later check for several builders (PRD section 17). Money is whole cents (BR-14); times are UTC
 -- and shown in Sydney time; "overdue" is calculated, never stored (BR-06).

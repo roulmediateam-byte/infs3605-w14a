@@ -1,6 +1,6 @@
 {
-  "name": "Get-Paid Apprentice",
-  "short_name": "Get-Paid",
+  "name": "Payprentice",
+  "short_name": "Payprentice",
   "description": "Approve and send the payment reminders your apprentice drafts each week.",
   "lang": "en-AU",
   "start_url": "./",

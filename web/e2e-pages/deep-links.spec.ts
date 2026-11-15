@@ -34,12 +34,17 @@ test('an address the app does not know shows its own not-found screen', async ({
   await expect(page.getByRole('heading', { name: "This page isn't here" })).toBeVisible();
 });
 
-test('the demonstration build answers under demo/, with only the screens it shows', async ({ page }) => {
+test('the demonstration build answers under demo/, with sign-up and only the screens it shows', async ({ page }) => {
   await page.goto('demo/review');
   await expect(page).toHaveURL(/\/getpaid-apprentice\/demo\/sign-in\?next=review$/);
-  await signInHere(page);
+  // Its sign-up: a made-up email and a password make an account with its own copy of the Test data business.
+  await expect(page.getByRole('heading', { name: 'Try Payprentice' })).toBeVisible();
+  await page.getByLabel('Email').fill('pages.check@demo.test');
+  await page.getByLabel('Password', { exact: true }).fill('harbour-line-8');
+  await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/getpaid-apprentice\/demo\/review$/);
   await expect(page.getByText('1 of 5', { exact: true })).toBeVisible();
+  expect(sql(`select count(*) from public.businesses where name = 'Harbour Line Electrical (Test data)'`), "the seed's business and this account's own").toBe('2');
   await page.getByRole('button', { name: 'Close review' }).click();
   await expect(page.getByText('Owed to you')).toBeVisible();
   // DEMO_HIDE_SCREENS leaves Invoices, Clients and Settings out of the demonstration build until they ship.

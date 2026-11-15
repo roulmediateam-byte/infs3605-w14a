@@ -24,6 +24,8 @@ create schema if not exists extensions;
 create table if not exists auth.users (
   id uuid primary key,
   email text unique,
+  -- Only the service role can set app_metadata (Auth admin API); the demonstration sign-up marks its accounts here.
+  raw_app_meta_data jsonb default '{}'::jsonb,
   raw_user_meta_data jsonb default '{}'::jsonb,
   created_at timestamptz default now()
 );

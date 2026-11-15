@@ -12,6 +12,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
+  // On CI, a broken run stops after 5 failed tests or 12 minutes instead of using up the job's time limit.
+  maxFailures: process.env.CI ? 5 : 0,
+  globalTimeout: process.env.CI ? 12 * 60_000 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   timeout: 45_000,
   expect: { timeout: 8_000 },

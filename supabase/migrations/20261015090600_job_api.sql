@@ -1,4 +1,4 @@
--- Get-Paid Apprentice · migration 7 of 7 · the scheduled jobs' API
+-- Payprentice · migration 7 of 7 · the scheduled jobs' API
 -- Functions named job_* are executable by service_role only (the GitHub Actions jobs). They act as "system"
 -- in the activity log. Schedules are in Sydney time (BR-13); every job is safe to repeat (NFR-09) because
 -- job_runs has one row per job, business and period, and drafts have one live row per invoice.

@@ -112,7 +112,7 @@ export const App = () => {
   if (session.status === 'loading') {
     return (
       <div className="center-screen">
-        <LoadingBlock label="Opening Get-Paid Apprentice" />
+        <LoadingBlock label="Opening Payprentice" />
       </div>
     );
   }

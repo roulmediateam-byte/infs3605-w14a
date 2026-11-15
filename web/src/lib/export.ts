@@ -125,7 +125,7 @@ export const exportEntries = (data: Record<string, unknown>): ZipEntry[] => {
     else if (value && typeof value === 'object') entries.push({ name: `${key}.csv`, content: toCsv([value as Record<string, unknown>]) });
   }
   const readme = [
-    'Get-Paid Apprentice: everything held for this business, one CSV file per record type.',
+    'Payprentice: everything held for this business, one CSV file per record type.',
     `Exported at ${typeof data.exported_at === 'string' ? data.exported_at : new Date().toISOString()} (UTC).`,
     'Amounts are in whole cents. Times are in UTC. Cells that start with =, +, - or @ begin with an apostrophe so no spreadsheet runs them.',
     '',

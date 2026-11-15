@@ -11,6 +11,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
+  // On CI, a broken run stops after 2 failed tests (of 6) or 4 minutes instead of using up the job's time limit.
+  maxFailures: process.env.CI ? 2 : 0,
+  globalTimeout: process.env.CI ? 4 * 60_000 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never', outputFolder: 'playwright-report-pages' }]] : 'list',
   timeout: 60_000,
   expect: { timeout: 10_000 },

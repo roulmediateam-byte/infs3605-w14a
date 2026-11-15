@@ -1,14 +1,74 @@
 // UI-10 Activity log (FR-21): who did what, and when. A read-only feed grouped by day, newest first, in Sydney
 // time, each entry a sentence. Filter by action, person, date or invoice; /log?invoice=1051 opens filtered.
+import {
+  Ban,
+  Building2,
+  CalendarCheck,
+  Check,
+  CircleCheck,
+  CircleDashed,
+  CirclePause,
+  CirclePlay,
+  Download,
+  FileUp,
+  ListChecks,
+  Mail,
+  MailCheck,
+  Pencil,
+  PenLine,
+  RotateCcw,
+  ScrollText,
+  Settings2,
+  TriangleAlert,
+  UserCheck,
+  UserMinus,
+  UserPen,
+  UserPlus,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useActivity, useClients, useInvoices, useMembers } from '../app/queries.ts';
 import { navigate, useLocation } from '../app/router.tsx';
-import { categoryOf, describe, LOG_CATEGORIES, type LogCategory, type LogEntry } from '../lib/activity.ts';
+import { categoryOf, describe, LOG_CATEGORIES, type ActivityAction, type LogCategory, type LogEntry } from '../lib/activity.ts';
 import { addDays, formatDay, formatTime, sydneyDate } from '../lib/dates.ts';
-import { Button, EmptyState, LoadingBlock, PageTitle, SelectField, TextField } from '../ui/controls.tsx';
+import { Button, EmptyState, IconTile, LoadingBlock, PageTitle, SelectField, TextField, type TileTone } from '../ui/controls.tsx';
 import { NoData } from '../ui/QueryState.tsx';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month';
+
+/**
+ * Each entry's tile says what kind of thing happened, so a day of 19 entries scans at a glance: imports in sky, the
+ * apprentice's drafting in violet, approvals in blue, sends and payments in green, and the rest in slate.
+ */
+const LOG_ICON: Record<ActivityAction, { icon: LucideIcon; tone: TileTone }> = {
+  import_completed: { icon: FileUp, tone: 'info' },
+  invoice_closed: { icon: Ban, tone: 'neutral' },
+  draft_created: { icon: PenLine, tone: 'apprentice' },
+  draft_flagged: { icon: TriangleAlert, tone: 'warning' },
+  draft_cancelled: { icon: CircleDashed, tone: 'neutral' },
+  weekly_run_completed: { icon: CalendarCheck, tone: 'apprentice' },
+  draft_approved: { icon: Check, tone: 'ready' },
+  draft_edited: { icon: Pencil, tone: 'ready' },
+  draft_rejected: { icon: X, tone: 'neutral' },
+  review_session: { icon: ListChecks, tone: 'ready' },
+  reminder_sent: { icon: MailCheck, tone: 'success' },
+  send_refused: { icon: Ban, tone: 'critical' },
+  invoice_paid: { icon: CircleCheck, tone: 'success' },
+  invoice_reopened: { icon: RotateCcw, tone: 'neutral' },
+  briefing_sent: { icon: Mail, tone: 'info' },
+  nudge_sent: { icon: Mail, tone: 'info' },
+  business_created: { icon: Building2, tone: 'neutral' },
+  settings_changed: { icon: Settings2, tone: 'neutral' },
+  client_updated: { icon: UserPen, tone: 'neutral' },
+  client_paused: { icon: CirclePause, tone: 'neutral' },
+  client_unpaused: { icon: CirclePlay, tone: 'neutral' },
+  member_invited: { icon: UserPlus, tone: 'neutral' },
+  member_joined: { icon: UserCheck, tone: 'neutral' },
+  member_removed: { icon: UserMinus, tone: 'neutral' },
+  attention_dismissed: { icon: Check, tone: 'neutral' },
+  data_exported: { icon: Download, tone: 'neutral' },
+};
 
 const sinceDate = (filter: DateFilter): string | null => {
   const today = sydneyDate();
@@ -72,7 +132,7 @@ export const LogScreen = () => {
 
   return (
     <div className="page stack-lg">
-      <div className="page-head">
+      <div className="page-head stack-sm">
         <PageTitle documentTitle="Activity log">Activity log</PageTitle>
         <p className="t-caption">Every import, draft, approval, send and payment, newest first. Times are Sydney time.</p>
       </div>
@@ -126,7 +186,7 @@ export const LogScreen = () => {
       ) : activity.data === undefined ? (
         <NoData query={activity} loading={<LoadingBlock label="Loading the activity log" />} />
       ) : days.length === 0 ? (
-        <EmptyState title={filtered ? 'Nothing matches these filters' : 'Nothing has happened yet.'}>
+        <EmptyState title={filtered ? 'Nothing matches these filters' : 'Nothing has happened yet.'} icon={ScrollText} tone="neutral">
           {filtered ? (invoiceId === 'none' ? `There's no invoice ${invoiceNumber}.` : 'Try another filter.') : null}
         </EmptyState>
       ) : (
@@ -139,13 +199,17 @@ export const LogScreen = () => {
               <h2 className="t-heading" id={`day-${group.day.replace(/\W+/g, '-')}`}>
                 {group.day}
               </h2>
-              <ul>
-                {group.entries.map((entry) => (
-                  <li key={entry.id} className="log-entry">
-                    <span className="log-time t-caption">{formatTime(entry.at)}</span>
-                    <span>{describe(entry, lookups)}</span>
-                  </li>
-                ))}
+              <ul className="log-card">
+                {group.entries.map((entry) => {
+                  const kind = LOG_ICON[entry.action] ?? { icon: ScrollText, tone: 'neutral' as const };
+                  return (
+                    <li key={entry.id} className="log-entry">
+                      <IconTile icon={kind.icon} tone={kind.tone} size="sm" />
+                      <span className="log-text">{describe(entry, lookups)}</span>
+                      <span className="log-time t-caption">{formatTime(entry.at)}</span>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           ))}

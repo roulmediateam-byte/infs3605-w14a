@@ -1,4 +1,4 @@
--- Get-Paid Apprentice · migration 3 of 7 · private helpers
+-- Payprentice · migration 3 of 7 · private helpers
 -- Sydney dates, money formatting, placeholder filling, the AI-06 checks, CSV value parsing,
 -- membership checks and the activity-log writer. None of these is exposed through the API.
 

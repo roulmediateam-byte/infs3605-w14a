@@ -1,11 +1,21 @@
 // The real backend: supabase-js against the Supabase project (TRD, Architecture). The browser holds only the
 // publishable key; row-level security and the role check at the top of every function decide what happens.
-import { createClient, FunctionsHttpError, isAuthRetryableFetchError, type SupabaseClient } from '@supabase/supabase-js';
-import { config } from '../app/config.ts';
-import type { LogEntry } from '../lib/activity.ts';
-import { readSignInLink } from '../lib/sign-in-link.ts';
-import type { Database } from './database.types.ts';
-import { AppError, fromAuthError, fromDatabaseError, MESSAGES } from './errors.ts';
+import {
+  createClient,
+  FunctionsHttpError,
+  isAuthRetryableFetchError,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
+import { config } from "../app/config.ts";
+import type { LogEntry } from "../lib/activity.ts";
+import { readSignInLink } from "../lib/sign-in-link.ts";
+import type { Database } from "./database.types.ts";
+import {
+  AppError,
+  fromAuthError,
+  fromDatabaseError,
+  MESSAGES,
+} from "./errors.ts";
 import type {
   ApproveResult,
   AuthUser,
@@ -33,11 +43,16 @@ import type {
   TonePreset,
   TrustSummary,
   WeeklyRun,
-} from './types.ts';
+} from "./types.ts";
 
 interface PostgrestResponse<T> {
   data: T | null;
-  error: { code?: string; message?: string; hint?: string | null; details?: string | null } | null;
+  error: {
+    code?: string;
+    message?: string;
+    hint?: string | null;
+    details?: string | null;
+  } | null;
   status?: number;
   count?: number | null;
 }
@@ -46,41 +61,53 @@ const PAGE = 1000;
 
 const check = <T>(response: PostgrestResponse<T>): T => {
   if (response.error) {
-    if (response.error.code === 'PGRST116') throw new AppError('not-found', MESSAGES.notFound, { code: 'PGRST116' });
+    if (response.error.code === "PGRST116")
+      throw new AppError("not-found", MESSAGES.notFound, { code: "PGRST116" });
     throw fromDatabaseError({ ...response.error, status: response.status });
   }
   return response.data as T;
 };
 
 const DRAFT_COLUMNS =
-  'id, invoice_id, status, source, tone_used, invoice_number_shown, amount_shown_cents, due_date_shown, edited, final_subject, final_body, approved_by, approver_role, approved_at, rejected_by, rejected_at, reject_reason, sent_confirmed_by, sent_confirmed_at, cancelled_at, cancel_reason, created_at';
+  "id, invoice_id, status, source, tone_used, invoice_number_shown, amount_shown_cents, due_date_shown, edited, final_subject, final_body, approved_by, approver_role, approved_at, rejected_by, rejected_at, reject_reason, sent_confirmed_by, sent_confirmed_at, cancelled_at, cancel_reason, created_at";
 
-type Fn<N extends keyof Database['public']['Functions']> = Database['public']['Functions'][N]['Args'];
+type Fn<N extends keyof Database["public"]["Functions"]> =
+  Database["public"]["Functions"][N]["Args"];
 
 /** An Edge Function's refusal as the plain-words message it sent, such as "Card payments aren't set up in this build yet." */
 const functionRefusal = async (error: unknown): Promise<AppError> => {
   const context = (error as { context?: Response } | null)?.context;
-  if (context && typeof context.json === 'function') {
+  if (context && typeof context.json === "function") {
     try {
-      const body = (await context.clone().json()) as { error?: string; message?: string };
+      const body = (await context.clone().json()) as {
+        error?: string;
+        message?: string;
+      };
       const said = body.error ?? body.message;
-      if (said) return new AppError('rule', said);
+      if (said) return new AppError("rule", said);
     } catch {
       // Not JSON: fall through to the general message.
     }
   }
-  return new AppError('unknown', "That didn't work. Check your connection, then try again.");
+  return new AppError(
+    "unknown",
+    "That didn't work. Check your connection, then try again.",
+  );
 };
 
 const BUSINESS_COLUMNS =
-  'id, name, owner_name, sign_off, reply_to_email, overdue_threshold_days, cooldown_days, briefing_weekday, briefing_time, checker_may_send, style_note, example_reminder, call_first_threshold_cents, xero_reminders, column_mapping, is_test_data, delete_after, auto_firm_after, created_at';
+  "id, name, owner_name, sign_off, reply_to_email, overdue_threshold_days, cooldown_days, briefing_weekday, briefing_time, checker_may_send, style_note, example_reminder, call_first_threshold_cents, xero_reminders, column_mapping, is_test_data, delete_after, auto_firm_after, created_at";
 
 /** The preview build reports start-up progress; the real backend has nothing to start. */
-export const watchBoot = (_listener: (step: 'download' | 'start' | 'migrate' | 'ready') => void): void => undefined;
+export const watchBoot = (
+  _listener: (step: "download" | "start" | "migrate" | "ready") => void,
+): void => undefined;
 
 /** The app's backend for this build: the Supabase project named at build time, or null when none is set. */
 export const createBackend = async (): Promise<Backend | null> =>
-  config.supabaseUrl && config.supabaseKey ? createSupabaseBackend(config.supabaseUrl, config.supabaseKey) : null;
+  config.supabaseUrl && config.supabaseKey
+    ? createSupabaseBackend(config.supabaseUrl, config.supabaseKey)
+    : null;
 
 /** supabase-js refreshes a session 90 seconds before its access token expires (its EXPIRY_MARGIN_MS). */
 const REFRESH_MARGIN_MS = 90_000;
@@ -110,7 +137,8 @@ const storedSession = (key: string): StoredSession | null => {
 const forgetStoredSession = (key: string): void => {
   try {
     for (const item of Object.keys(window.localStorage)) {
-      if (item === key || item.startsWith(`${key}-`)) window.localStorage.removeItem(item);
+      if (item === key || item.startsWith(`${key}-`))
+        window.localStorage.removeItem(item);
     }
   } catch {
     // Storage is unavailable, so nothing was kept.
@@ -118,7 +146,8 @@ const forgetStoredSession = (key: string): void => {
 };
 
 /** What to say about a sign-in link that didn't work: send a new code, or a new link when the email has no code. */
-const badLinkMessage = (): string => (config.signInEmail === 'link' ? MESSAGES.badLinkOnly : MESSAGES.badLink);
+const badLinkMessage = (): string =>
+  config.signInEmail === "link" ? MESSAGES.badLinkOnly : MESSAGES.badLink;
 
 /**
  * The emailed sign-in link lands with the session in the address's fragment (#access_token=...&refresh_token=...).
@@ -126,15 +155,24 @@ const badLinkMessage = (): string => (config.signInEmail === 'link' ? MESSAGES.b
  * history, where Back on a shared computer would show a working token (Engineering review). supabase-js would remove
  * it with a new history entry instead, so its own detection is off.
  */
-const takeSessionFromLink = async (client: SupabaseClient<Database>): Promise<string | null> => {
+const takeSessionFromLink = async (
+  client: SupabaseClient<Database>,
+): Promise<string | null> => {
   const fragment = window.location.hash;
   if (!/[#&](access_token|error|error_code)=/.test(fragment)) return null;
   const params = new URLSearchParams(fragment.slice(1));
-  window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
-  const accessToken = params.get('access_token');
-  const refreshToken = params.get('refresh_token');
+  window.history.replaceState(
+    window.history.state,
+    "",
+    window.location.pathname + window.location.search,
+  );
+  const accessToken = params.get("access_token");
+  const refreshToken = params.get("refresh_token");
   if (!accessToken || !refreshToken) return badLinkMessage();
-  const { error } = await client.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+  const { error } = await client.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
   if (!error) return null;
   return isAuthRetryableFetchError(error) ? MESSAGES.network : badLinkMessage();
 };
@@ -142,7 +180,9 @@ const takeSessionFromLink = async (client: SupabaseClient<Database>): Promise<st
 /** The demonstration "Run it now" function's refusal (supabase/functions/demo-weekly-run/handler.ts), as an AppError. */
 const fromDraftingRefusal = async (error: unknown): Promise<AppError> => {
   if (!(error instanceof FunctionsHttpError)) {
-    return navigator.onLine === false ? new AppError('offline', MESSAGES.offline) : new AppError('network', MESSAGES.network);
+    return navigator.onLine === false
+      ? new AppError("offline", MESSAGES.offline)
+      : new AppError("network", MESSAGES.network);
   }
   const response = error.context as Response;
   let body: { error?: string; code?: string } = {};
@@ -151,16 +191,25 @@ const fromDraftingRefusal = async (error: unknown): Promise<AppError> => {
   } catch {
     // Not the function's own answer (the platform refused first): fall back on the status.
   }
-  if (response.status === 401 || body.code === 'signed_out') return new AppError('signed-out', MESSAGES.signedOut);
-  if (body.code === 'not_owner') return new AppError('permission', body.error ?? MESSAGES.permission);
-  if (body.code === 'not_test_data' || body.code === 'busy' || body.code === 'business') return new AppError('rule', body.error ?? MESSAGES.unknown);
-  return new AppError('unknown', body.error ?? MESSAGES.unknown);
+  if (response.status === 401 || body.code === "signed_out")
+    return new AppError("signed-out", MESSAGES.signedOut);
+  if (body.code === "not_owner")
+    return new AppError("permission", body.error ?? MESSAGES.permission);
+  if (
+    body.code === "not_test_data" ||
+    body.code === "busy" ||
+    body.code === "business"
+  )
+    return new AppError("rule", body.error ?? MESSAGES.unknown);
+  return new AppError("unknown", body.error ?? MESSAGES.unknown);
 };
 
 /** The demonstration sign-up function's refusal (supabase/functions/demo-sign-up/handler.ts), as an AppError. */
 const fromSignUpRefusal = async (error: unknown): Promise<AppError> => {
   if (!(error instanceof FunctionsHttpError)) {
-    return navigator.onLine === false ? new AppError('offline', MESSAGES.offline) : new AppError('network', MESSAGES.network);
+    return navigator.onLine === false
+      ? new AppError("offline", MESSAGES.offline)
+      : new AppError("network", MESSAGES.network);
   }
   const response = error.context as Response;
   let body: { error?: string; code?: string } = {};
@@ -170,25 +219,52 @@ const fromSignUpRefusal = async (error: unknown): Promise<AppError> => {
     // Not the function's own answer (the platform refused first): fall back on the status.
   }
   const code = body.code ?? null;
-  if (response.status === 401 || code === 'signed_out') return new AppError('signed-out', MESSAGES.signedOut, { code });
-  if (code === 'exists') return new AppError('exists', body.error ?? MESSAGES.signUpFailed, { code });
-  if (response.status === 429) return new AppError('rate-limit', body.error ?? MESSAGES.rateLimit, { code });
-  if (body.error && response.status < 500) return new AppError('rule', body.error, { code });
-  return new AppError('unknown', body.error ?? MESSAGES.signUpFailed, { code });
+  if (response.status === 401 || code === "signed_out")
+    return new AppError("signed-out", MESSAGES.signedOut, { code });
+  if (code === "exists")
+    return new AppError("exists", body.error ?? MESSAGES.signUpFailed, {
+      code,
+    });
+  if (response.status === 429)
+    return new AppError("rate-limit", body.error ?? MESSAGES.rateLimit, {
+      code,
+    });
+  if (body.error && response.status < 500)
+    return new AppError("rule", body.error, { code });
+  return new AppError("unknown", body.error ?? MESSAGES.signUpFailed, { code });
 };
 
 /** A password sign-in that didn't work: Supabase Auth says invalid_credentials for any mismatch, by design. */
-const fromPasswordError = (error: { code?: string; status?: number; message?: string; name?: string }): AppError => {
-  if (error.code === 'invalid_credentials' || /invalid login credentials/i.test(error.message ?? '')) {
-    return new AppError('code', MESSAGES.badPassword, { code: error.code ?? null });
+const fromPasswordError = (error: {
+  code?: string;
+  status?: number;
+  message?: string;
+  name?: string;
+}): AppError => {
+  if (
+    error.code === "invalid_credentials" ||
+    /invalid login credentials/i.test(error.message ?? "")
+  ) {
+    return new AppError("code", MESSAGES.badPassword, {
+      code: error.code ?? null,
+    });
   }
   return fromAuthError(error);
 };
 
-export const createSupabaseBackend = async (url: string, publishableKey: string): Promise<Backend> => {
+export const createSupabaseBackend = async (
+  url: string,
+  publishableKey: string,
+): Promise<Backend> => {
   const storageKey = authKey(url);
   const client = createClient<Database>(url, publishableKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'implicit', storageKey },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      flowType: "implicit",
+      storageKey,
+    },
   });
   let linkProblem = await takeSessionFromLink(client);
 
@@ -198,12 +274,17 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
    */
   const currentSession = async () => {
     const stored = storedSession(storageKey);
-    const needsRefresh = typeof stored?.expires_at === 'number' && stored.expires_at * 1000 - Date.now() < REFRESH_MARGIN_MS;
-    if (stored && needsRefresh && navigator.onLine === false) throw new AppError('offline', MESSAGES.offline);
+    const needsRefresh =
+      typeof stored?.expires_at === "number" &&
+      stored.expires_at * 1000 - Date.now() < REFRESH_MARGIN_MS;
+    if (stored && needsRefresh && navigator.onLine === false)
+      throw new AppError("offline", MESSAGES.offline);
     const { data, error } = await client.auth.getSession();
     if (data.session) return data.session;
     if (error && isAuthRetryableFetchError(error)) {
-      throw navigator.onLine === false ? new AppError('offline', MESSAGES.offline) : new AppError('network', MESSAGES.network);
+      throw navigator.onLine === false
+        ? new AppError("offline", MESSAGES.offline)
+        : new AppError("network", MESSAGES.network);
     }
     return null;
   };
@@ -213,18 +294,29 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
    * That is a signed-out person, not a refusal, so it opens the sign-in sheet instead (App Flow, Journey 2).
    */
   const ensureSession = async (): Promise<void> => {
-    if (!(await currentSession())) throw new AppError('signed-out', MESSAGES.signedOut);
+    if (!(await currentSession()))
+      throw new AppError("signed-out", MESSAGES.signedOut);
   };
 
-  const rpc = async <T>(fn: keyof Database['public']['Functions'], args: Record<string, unknown>): Promise<T> => {
+  const rpc = async <T>(
+    fn: keyof Database["public"]["Functions"],
+    args: Record<string, unknown>,
+  ): Promise<T> => {
     await ensureSession();
     // The generated types check argument names at each call site below; this helper only unwraps the result.
-    const response = (await (client.rpc as unknown as (f: string, a: Record<string, unknown>) => PromiseLike<PostgrestResponse<T>>)(fn, args)) as PostgrestResponse<T>;
+    const response = (await (
+      client.rpc as unknown as (
+        f: string,
+        a: Record<string, unknown>,
+      ) => PromiseLike<PostgrestResponse<T>>
+    )(fn, args)) as PostgrestResponse<T>;
     return check(response);
   };
 
   /** Reads every page of a list, because the API returns at most 1,000 rows at a time. */
-  const readAll = async <T>(page: (from: number, to: number) => PromiseLike<PostgrestResponse<T[]>>): Promise<T[]> => {
+  const readAll = async <T>(
+    page: (from: number, to: number) => PromiseLike<PostgrestResponse<T[]>>,
+  ): Promise<T[]> => {
     await ensureSession();
     const rows: T[] = [];
     for (let from = 0; ; from += PAGE) {
@@ -234,39 +326,62 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
     }
   };
 
-  const userOf = (user: { id: string; email?: string | null } | null | undefined): AuthUser | null =>
-    user ? { id: user.id, email: user.email ?? '' } : null;
+  const userOf = (
+    user: { id: string; email?: string | null } | null | undefined,
+  ): AuthUser | null =>
+    user ? { id: user.id, email: user.email ?? "" } : null;
 
   /** The demonstration build's password sign-in (config.demoSignUp). */
-  const signInWithPassword = async (email: string, password: string): Promise<AuthUser> => {
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
+  const signInWithPassword = async (
+    email: string,
+    password: string,
+  ): Promise<AuthUser> => {
+    const { data, error } = await client.auth.signInWithPassword({
+      email,
+      password,
+    });
     if (error) throw fromPasswordError(error);
     const user = userOf(data.user);
-    if (!user) throw new AppError('code', MESSAGES.badPassword);
+    if (!user) throw new AppError("code", MESSAGES.badPassword);
     return user;
   };
 
   /** The demonstration build's sign-up: the function makes the account and its Test data business, then this signs in. */
   const signUp = async (email: string, password: string): Promise<AuthUser> => {
-    const { error } = await client.functions.invoke('demo-sign-up', { body: { email, password } });
+    const { error } = await client.functions.invoke("demo-sign-up", {
+      body: { email, password },
+    });
     if (error) {
       const refusal = await fromSignUpRefusal(error);
       // The account was made but its business wasn't: sign in anyway, and the session asks for it again (ensure).
-      if (refusal.code !== 'provision_failed') throw refusal;
+      if (refusal.code !== "provision_failed") throw refusal;
     }
     return signInWithPassword(email, password);
   };
 
   const tables = {
-    count: async (table: 'clients' | 'invoices' | 'reminder_drafts' | 'imports' | 'activity_log' | 'attention_items' | 'memberships', businessId: string) => {
-      const response = await client.from(table).select('id', { count: 'exact', head: true }).eq('business_id', businessId);
+    count: async (
+      table:
+        | "clients"
+        | "invoices"
+        | "reminder_drafts"
+        | "imports"
+        | "activity_log"
+        | "attention_items"
+        | "memberships",
+      businessId: string,
+    ) => {
+      const response = await client
+        .from(table)
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", businessId);
       check(response as PostgrestResponse<unknown>);
       return response.count ?? 0;
     },
   };
 
   return {
-    kind: 'supabase',
+    kind: "supabase",
     auth: {
       async currentUser() {
         return userOf((await currentSession())?.user);
@@ -277,37 +392,58 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
         return problem;
       },
       onChange(listener) {
-        const { data } = client.auth.onAuthStateChange((event, session) => listener(event, userOf(session?.user)));
+        const { data } = client.auth.onAuthStateChange((event, session) =>
+          listener(event, userOf(session?.user)),
+        );
         return () => data.subscription.unsubscribe();
       },
       async sendCode(email, redirectTo) {
-        const { error } = await client.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: redirectTo } });
+        const { error } = await client.auth.signInWithOtp({
+          email,
+          options: { shouldCreateUser: false, emailRedirectTo: redirectTo },
+        });
         if (error) throw fromAuthError(error);
       },
       async verifyCode(email, code) {
-        const { data, error } = await client.auth.verifyOtp({ email, token: code, type: 'email' });
+        const { data, error } = await client.auth.verifyOtp({
+          email,
+          token: code,
+          type: "email",
+        });
         if (error) throw fromAuthError(error);
         const user = userOf(data.user);
-        if (!user) throw new AppError('code', MESSAGES.badCode);
+        if (!user) throw new AppError("code", MESSAGES.badCode);
         return user;
       },
       async signInWithLink(pasted) {
         // The emailed link, or the address it opened: either finishes the sign-in here, on this device, whichever page
         // the link opened (a phone's email app, or Supabase's default Site URL, http://localhost:3000).
         const link = readSignInLink(pasted);
-        if (!link) throw new AppError('code', MESSAGES.notALink);
-        if (link.kind === 'expired') throw new AppError('code', badLinkMessage());
+        if (!link) throw new AppError("code", MESSAGES.notALink);
+        if (link.kind === "expired")
+          throw new AppError("code", badLinkMessage());
         const { data, error } =
-          link.kind === 'session'
-            ? await client.auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
-            : await client.auth.verifyOtp({ token_hash: link.tokenHash, type: link.type });
+          link.kind === "session"
+            ? await client.auth.setSession({
+                access_token: link.accessToken,
+                refresh_token: link.refreshToken,
+              })
+            : await client.auth.verifyOtp({
+                token_hash: link.tokenHash,
+                type: link.type,
+              });
         if (error) {
           const appError = fromAuthError(error);
-          if (appError.kind === 'network' || appError.kind === 'offline' || appError.kind === 'rate-limit') throw appError;
-          throw new AppError('code', badLinkMessage(), { code: appError.code });
+          if (
+            appError.kind === "network" ||
+            appError.kind === "offline" ||
+            appError.kind === "rate-limit"
+          )
+            throw appError;
+          throw new AppError("code", badLinkMessage(), { code: appError.code });
         }
         const user = userOf(data.user);
-        if (!user) throw new AppError('code', badLinkMessage());
+        if (!user) throw new AppError("code", badLinkMessage());
         return user;
       },
       ...(config.demoSignUp ? { signUp, signInWithPassword } : {}),
@@ -318,9 +454,15 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
         forgetStoredSession(storageKey);
         // With nothing stored, the library clears its own state and tells other tabs, without a network call. It
         // can wait behind a refresh that is retrying, so the app doesn't wait more than 3 seconds for it.
-        await Promise.race([client.auth.signOut({ scope: 'local' }).catch(() => undefined), new Promise((resolve) => setTimeout(resolve, 3000))]);
+        await Promise.race([
+          client.auth.signOut({ scope: "local" }).catch(() => undefined),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
         // Then the server, so this session can't be refreshed anywhere else. Offline, it simply expires.
-        if (accessToken && navigator.onLine !== false) void client.auth.admin.signOut(accessToken, 'local').catch(() => undefined);
+        if (accessToken && navigator.onLine !== false)
+          void client.auth.admin
+            .signOut(accessToken, "local")
+            .catch(() => undefined);
       },
     },
 
@@ -329,11 +471,17 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
           // The demonstration build's "Run it now": the scheduled job's run, started by the owner of a Test data business.
           async runDraftingNow(businessId: string): Promise<DraftingRunResult> {
             await ensureSession();
-            const { data, error } = await client.functions.invoke<{ drafted?: number; claude?: boolean }>('demo-weekly-run', {
+            const { data, error } = await client.functions.invoke<{
+              drafted?: number;
+              claude?: boolean;
+            }>("demo-weekly-run", {
               body: { business_id: businessId },
             });
             if (error) throw await fromDraftingRefusal(error);
-            return { drafted: data?.drafted ?? 0, claude: data?.claude === true };
+            return {
+              drafted: data?.drafted ?? 0,
+              claude: data?.claude === true,
+            };
           },
         }
       : {}),
@@ -343,123 +491,179 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
           // A demonstration account with no business gets its Test data business back (demo-sign-up, "ensure").
           async ensureDemoBusiness(): Promise<boolean> {
             await ensureSession();
-            const { data, error } = await client.functions.invoke<{ business?: string }>('demo-sign-up', { body: { action: 'ensure' } });
+            const { data, error } = await client.functions.invoke<{
+              business?: string;
+            }>("demo-sign-up", { body: { action: "ensure" } });
             if (error) {
               const refusal = await fromSignUpRefusal(error);
               // An account made some other way: it waits for an invitation, as before.
-              if (refusal.code === 'not_demo') return false;
+              if (refusal.code === "not_demo") return false;
               throw refusal;
             }
-            return data?.business === 'created' || data?.business === 'exists';
+            return data?.business === "created" || data?.business === "exists";
           },
         }
       : {}),
 
-    acceptInvitations: () => rpc<Membership[]>('accept_invitations', {}),
-    getBriefing: (businessId) => rpc<Briefing>('get_briefing', { p_business_id: businessId } satisfies Database['public']['Functions']['get_briefing']['Args']),
+    acceptInvitations: () => rpc<Membership[]>("accept_invitations", {}),
+    getBriefing: (businessId) =>
+      rpc<Briefing>("get_briefing", {
+        p_business_id: businessId,
+      } satisfies Database["public"]["Functions"]["get_briefing"]["Args"]),
     getTrustSummary: (businessId) =>
-      rpc<TrustSummary>('get_trust_summary', { p_business_id: businessId } satisfies Database['public']['Functions']['get_trust_summary']['Args']),
+      rpc<TrustSummary>("get_trust_summary", {
+        p_business_id: businessId,
+      } satisfies Database["public"]["Functions"]["get_trust_summary"]["Args"]),
     reviewQueue: (businessId) =>
-      rpc<QueueItem[]>('review_queue', { p_business_id: businessId } satisfies Database['public']['Functions']['review_queue']['Args']),
+      rpc<QueueItem[]>("review_queue", {
+        p_business_id: businessId,
+      } satisfies Database["public"]["Functions"]["review_queue"]["Args"]),
     approveDraft: (draftId, edit) =>
-      rpc<ApproveResult>('approve_draft', {
+      rpc<ApproveResult>("approve_draft", {
         p_draft_id: draftId,
         ...(edit ? { p_subject: edit.subject, p_body: edit.body } : {}),
-      } satisfies Database['public']['Functions']['approve_draft']['Args']),
+      } satisfies Database["public"]["Functions"]["approve_draft"]["Args"]),
     rejectDraft: (draftId, reason, note) =>
-      rpc<RejectResult>('reject_draft', {
+      rpc<RejectResult>("reject_draft", {
         p_draft_id: draftId,
         p_reason: reason,
         ...(note ? { p_note: note } : {}),
-      } satisfies Database['public']['Functions']['reject_draft']['Args']),
+      } satisfies Database["public"]["Functions"]["reject_draft"]["Args"]),
     getSendPayload: (draftId) =>
-      rpc<SendPayload>('get_send_payload', { p_draft_id: draftId } satisfies Database['public']['Functions']['get_send_payload']['Args']),
+      rpc<SendPayload>("get_send_payload", {
+        p_draft_id: draftId,
+      } satisfies Database["public"]["Functions"]["get_send_payload"]["Args"]),
     confirmSent: (draftId, method) =>
-      rpc<ConfirmSentResult>('confirm_sent', { p_draft_id: draftId, p_method: method } satisfies Database['public']['Functions']['confirm_sent']['Args']),
+      rpc<ConfirmSentResult>("confirm_sent", {
+        p_draft_id: draftId,
+        p_method: method,
+      } satisfies Database["public"]["Functions"]["confirm_sent"]["Args"]),
     markPaid: (invoiceId, paidDate) =>
-      rpc<MarkPaidResult>('mark_paid', {
+      rpc<MarkPaidResult>("mark_paid", {
         p_invoice_id: invoiceId,
         ...(paidDate ? { p_paid_date: paidDate } : {}),
-      } satisfies Database['public']['Functions']['mark_paid']['Args']),
-    undoMarkPaid: (invoiceId) => rpc<void>('undo_mark_paid', { p_invoice_id: invoiceId } satisfies Database['public']['Functions']['undo_mark_paid']['Args']),
-    dismissAttention: (itemId) => rpc<void>('dismiss_attention', { p_item_id: itemId } satisfies Database['public']['Functions']['dismiss_attention']['Args']),
+      } satisfies Database["public"]["Functions"]["mark_paid"]["Args"]),
+    undoMarkPaid: (invoiceId) =>
+      rpc<void>("undo_mark_paid", {
+        p_invoice_id: invoiceId,
+      } satisfies Database["public"]["Functions"]["undo_mark_paid"]["Args"]),
+    dismissAttention: (itemId) =>
+      rpc<void>("dismiss_attention", {
+        p_item_id: itemId,
+      } satisfies Database["public"]["Functions"]["dismiss_attention"]["Args"]),
     confirmImport: (request) =>
-      rpc<ImportResult>('confirm_import', {
+      rpc<ImportResult>("confirm_import", {
         p_business_id: request.businessId,
         p_file_name: request.fileName,
         p_format: request.format,
-        p_mapping: request.mapping as Database['public']['Functions']['confirm_import']['Args']['p_mapping'],
-        p_rows: request.rows as unknown as Database['public']['Functions']['confirm_import']['Args']['p_rows'],
+        p_mapping:
+          request.mapping as Database["public"]["Functions"]["confirm_import"]["Args"]["p_mapping"],
+        p_rows:
+          request.rows as unknown as Database["public"]["Functions"]["confirm_import"]["Args"]["p_rows"],
         p_expected_rows: request.expectedRows,
         // A bigint total too large for a JSON number travels as a string, which Postgres casts exactly.
         p_expected_total_cents: request.expectedTotalCents as number,
         p_allow_mass_close: request.allowMassClose,
-      } satisfies Database['public']['Functions']['confirm_import']['Args']),
+      } satisfies Database["public"]["Functions"]["confirm_import"]["Args"]),
     logReviewSession: (businessId, stats) =>
-      rpc<void>('log_review_session', {
+      rpc<void>("log_review_session", {
         p_business_id: businessId,
         p_stats: { ...stats },
-      } satisfies Database['public']['Functions']['log_review_session']['Args']),
+      } satisfies Database["public"]["Functions"]["log_review_session"]["Args"]),
     updateSettings: (businessId, changes) =>
-      rpc<void>('update_settings', {
+      rpc<void>("update_settings", {
         p_business_id: businessId,
-        p_changes: changes as Database['public']['Functions']['update_settings']['Args']['p_changes'],
-      } satisfies Database['public']['Functions']['update_settings']['Args']),
+        p_changes:
+          changes as Database["public"]["Functions"]["update_settings"]["Args"]["p_changes"],
+      } satisfies Database["public"]["Functions"]["update_settings"]["Args"]),
     inviteChecker: (businessId, email, displayName) =>
-      rpc<string>('invite_checker', {
+      rpc<string>("invite_checker", {
         p_business_id: businessId,
         p_email: email,
         p_display_name: displayName,
-      } satisfies Database['public']['Functions']['invite_checker']['Args']),
-    removeMember: (membershipId) => rpc<void>('remove_member', { p_membership_id: membershipId } satisfies Database['public']['Functions']['remove_member']['Args']),
+      } satisfies Database["public"]["Functions"]["invite_checker"]["Args"]),
+    removeMember: (membershipId) =>
+      rpc<void>("remove_member", {
+        p_membership_id: membershipId,
+      } satisfies Database["public"]["Functions"]["remove_member"]["Args"]),
     updateClientContact: (clientId, email, contactName) =>
-      rpc<void>('update_client_contact', {
+      rpc<void>("update_client_contact", {
         p_client_id: clientId,
         p_email: email,
         ...(contactName ? { p_contact_name: contactName } : {}),
-      } satisfies Database['public']['Functions']['update_client_contact']['Args']),
+      } satisfies Database["public"]["Functions"]["update_client_contact"]["Args"]),
     setClientTone: (clientId, tone) =>
-      rpc<void>('set_client_tone', { p_client_id: clientId, p_tone: tone } satisfies Database['public']['Functions']['set_client_tone']['Args']),
+      rpc<void>("set_client_tone", {
+        p_client_id: clientId,
+        p_tone: tone,
+      } satisfies Database["public"]["Functions"]["set_client_tone"]["Args"]),
     setClientPaused: (clientId, paused) =>
-      rpc<{ paused: boolean; drafts_cancelled: number }>('set_client_paused', {
+      rpc<{ paused: boolean; drafts_cancelled: number }>("set_client_paused", {
         p_client_id: clientId,
         p_paused: paused,
-      } satisfies Database['public']['Functions']['set_client_paused']['Args']),
+      } satisfies Database["public"]["Functions"]["set_client_paused"]["Args"]),
     exportBusinessData: (businessId) =>
-      rpc<Record<string, unknown>>('export_business_data', { p_business_id: businessId } satisfies Database['public']['Functions']['export_business_data']['Args']),
+      rpc<Record<string, unknown>>("export_business_data", {
+        p_business_id: businessId,
+      } satisfies Database["public"]["Functions"]["export_business_data"]["Args"]),
     deleteBusiness: (businessId, confirmName) =>
-      rpc<DeleteResult>('delete_business', {
+      rpc<DeleteResult>("delete_business", {
         p_business_id: businessId,
         p_confirm_name: confirmName,
-      } satisfies Database['public']['Functions']['delete_business']['Args']),
+      } satisfies Database["public"]["Functions"]["delete_business"]["Args"]),
 
     async businesses() {
       await ensureSession();
-      return check(await client.from('businesses').select('id, name, is_test_data').order('name')) as { id: string; name: string; is_test_data: boolean }[];
+      return check(
+        await client
+          .from("businesses")
+          .select("id, name, is_test_data")
+          .order("name"),
+      ) as { id: string; name: string; is_test_data: boolean }[];
     },
     async business(businessId) {
       await ensureSession();
-      return check(await client.from('businesses').select(BUSINESS_COLUMNS).eq('id', businessId).single()) as unknown as Business;
+      return check(
+        await client
+          .from("businesses")
+          .select(BUSINESS_COLUMNS)
+          .eq("id", businessId)
+          .single(),
+      ) as unknown as Business;
     },
     async members(businessId) {
       await ensureSession();
       return check(
-        await client.from('memberships').select('id, user_id, invited_email, display_name, role, status, join_code, join_code_expires_at').eq('business_id', businessId).order('invited_at'),
+        await client
+          .from("memberships")
+          .select(
+            "id, user_id, invited_email, display_name, role, status, join_code, join_code_expires_at",
+          )
+          .eq("business_id", businessId)
+          .order("invited_at"),
       ) as Member[];
     },
     async invoices(businessId) {
       const rows = await readAll((from, to) =>
-        client.from('invoice_list').select('*').eq('business_id', businessId).order('due_date').order('invoice_number').range(from, to),
+        client
+          .from("invoice_list")
+          .select("*")
+          .eq("business_id", businessId)
+          .order("due_date")
+          .order("invoice_number")
+          .range(from, to),
       );
       return rows as unknown as InvoiceListRow[];
     },
     async clients(businessId) {
       const rows = await readAll((from, to) =>
         client
-          .from('clients')
-          .select('id, name, contact_name, email, tone, client_group, paused, paused_at, preset_id')
-          .eq('business_id', businessId)
-          .order('name')
+          .from("clients")
+          .select(
+            "id, name, contact_name, email, tone, client_group, paused, paused_at, preset_id",
+          )
+          .eq("business_id", businessId)
+          .order("name")
           .range(from, to),
       );
       return rows as Client[];
@@ -467,43 +671,59 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
     async drafts(businessId, statuses: DraftStatus[]) {
       const rows = await readAll((from, to) =>
         client
-          .from('reminder_drafts')
+          .from("reminder_drafts")
           .select(DRAFT_COLUMNS)
-          .eq('business_id', businessId)
-          .in('status', statuses)
-          .order('created_at', { ascending: false })
+          .eq("business_id", businessId)
+          .in("status", statuses)
+          .order("created_at", { ascending: false })
           .range(from, to),
       );
       return rows as DraftRecord[];
     },
     async draft(draftId) {
       await ensureSession();
-      return check(await client.from('reminder_drafts').select(DRAFT_COLUMNS).eq('id', draftId).maybeSingle()) as DraftRecord | null;
+      return check(
+        await client
+          .from("reminder_drafts")
+          .select(DRAFT_COLUMNS)
+          .eq("id", draftId)
+          .maybeSingle(),
+      ) as DraftRecord | null;
     },
     async openAttention(businessId) {
       await ensureSession();
       return check(
-        await client.from('attention_items').select('id, invoice_id, kind').eq('business_id', businessId).is('resolved_at', null),
+        await client
+          .from("attention_items")
+          .select("id, invoice_id, kind")
+          .eq("business_id", businessId)
+          .is("resolved_at", null),
       ) as OpenAttentionItem[];
     },
     async activity(businessId, { before, limit, invoiceId }) {
       await ensureSession();
       let query = client
-        .from('activity_log')
-        .select('id, at, actor_user_id, actor_role, action, invoice_id, draft_id, client_id, import_id, run_id, details')
-        .eq('business_id', businessId);
-      if (before !== undefined) query = query.lt('id', before);
-      if (invoiceId) query = query.eq('invoice_id', invoiceId);
-      return check(await query.order('id', { ascending: false }).limit(limit)) as unknown as LogEntry[];
+        .from("activity_log")
+        .select(
+          "id, at, actor_user_id, actor_role, action, invoice_id, draft_id, client_id, import_id, run_id, details",
+        )
+        .eq("business_id", businessId);
+      if (before !== undefined) query = query.lt("id", before);
+      if (invoiceId) query = query.eq("invoice_id", invoiceId);
+      return check(
+        await query.order("id", { ascending: false }).limit(limit),
+      ) as unknown as LogEntry[];
     },
     async lastImport(businessId) {
       await ensureSession();
       return check(
         await client
-          .from('imports')
-          .select('id, uploaded_at, file_name, rows_read, rows_saved, rows_skipped')
-          .eq('business_id', businessId)
-          .order('uploaded_at', { ascending: false })
+          .from("imports")
+          .select(
+            "id, uploaded_at, file_name, rows_read, rows_saved, rows_skipped",
+          )
+          .eq("business_id", businessId)
+          .order("uploaded_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
       ) as ImportSummary | null;
@@ -512,73 +732,142 @@ export const createSupabaseBackend = async (url: string, publishableKey: string)
       await ensureSession();
       return check(
         await client
-          .from('job_runs')
-          .select('period_key, status, started_at, finished_at')
-          .eq('business_id', businessId)
-          .eq('job', 'weekly_run')
-          .gte('period_key', sinceDate),
+          .from("job_runs")
+          .select("period_key, status, started_at, finished_at")
+          .eq("business_id", businessId)
+          .eq("job", "weekly_run")
+          .gte("period_key", sinceDate),
       ) as WeeklyRun[];
     },
-    getBilling: (businessId) => rpc<Billing>('get_billing', { p_business_id: businessId } satisfies Fn<'get_billing'>),
-    choosePlan: (businessId, plan) => rpc<Billing>('choose_plan', { p_business_id: businessId, p_plan: plan } satisfies Fn<'choose_plan'>),
-    cancelPlan: (businessId) => rpc<Billing>('cancel_plan', { p_business_id: businessId } satisfies Fn<'cancel_plan'>),
-    resumePlan: (businessId) => rpc<Billing>('resume_plan', { p_business_id: businessId } satisfies Fn<'resume_plan'>),
-    async startCheckout(businessId, plan, returnTo) {
-      await ensureSession();
-      const { data, error } = await client.functions.invoke<{ url?: string }>('billing-checkout', {
-        body: { action: 'start', business_id: businessId, plan, return_to: returnTo },
-      });
-      if (error || !data?.url) throw await functionRefusal(error);
-      return { url: data.url };
-    },
-    async confirmCheckout(businessId, sessionId) {
-      await ensureSession();
-      const { data, error } = await client.functions.invoke<{ billing?: Billing }>('billing-checkout', {
-        body: { action: 'confirm', business_id: businessId, session_id: sessionId },
-      });
-      if (error || !data?.billing) throw await functionRefusal(error);
-      return data.billing;
-    },
-    async emailBriefingNow(businessId) {
-      await ensureSession();
-      const { data, error } = await client.functions.invoke<{ sent_to?: string }>('send-briefing', {
-        body: { action: 'send_now', business_id: businessId },
-      });
-      if (error || !data?.sent_to) throw await functionRefusal(error);
-      return { sent_to: data.sent_to };
-    },
-    joinWithCode: (code) => rpc<{ business_id: string; role: Role }>('join_with_code', { p_code: code } satisfies Fn<'join_with_code'>),
+    getBilling: (businessId) =>
+      rpc<Billing>("get_billing", {
+        p_business_id: businessId,
+      } satisfies Fn<"get_billing">),
+    choosePlan: (businessId, plan) =>
+      rpc<Billing>("choose_plan", {
+        p_business_id: businessId,
+        p_plan: plan,
+      } satisfies Fn<"choose_plan">),
+    cancelPlan: (businessId) =>
+      rpc<Billing>("cancel_plan", {
+        p_business_id: businessId,
+      } satisfies Fn<"cancel_plan">),
+    resumePlan: (businessId) =>
+      rpc<Billing>("resume_plan", {
+        p_business_id: businessId,
+      } satisfies Fn<"resume_plan">),
+    ...(config.cardCheckout
+      ? {
+          async startCheckout(businessId, plan, returnTo) {
+            await ensureSession();
+            const { data, error } = await client.functions.invoke<{
+              url?: string;
+            }>("billing-checkout", {
+              body: {
+                action: "start",
+                business_id: businessId,
+                plan,
+                return_to: returnTo,
+              },
+            });
+            if (error || !data?.url) throw await functionRefusal(error);
+            return { url: data.url };
+          },
+          async confirmCheckout(businessId, sessionId) {
+            await ensureSession();
+            const { data, error } = await client.functions.invoke<{
+              billing?: Billing;
+            }>("billing-checkout", {
+              body: {
+                action: "confirm",
+                business_id: businessId,
+                session_id: sessionId,
+              },
+            });
+            if (error || !data?.billing) throw await functionRefusal(error);
+            return data.billing;
+          },
+        }
+      : {}),
+    ...(config.emailBriefingNow
+      ? {
+          async emailBriefingNow(businessId) {
+            await ensureSession();
+            const { data, error } = await client.functions.invoke<{
+              sent_to?: string;
+            }>("send-briefing", {
+              body: { action: "send_now", business_id: businessId },
+            });
+            if (error || !data?.sent_to) throw await functionRefusal(error);
+            return { sent_to: data.sent_to };
+          },
+        }
+      : {}),
+    joinWithCode: (code) =>
+      rpc<{ business_id: string; role: Role }>("join_with_code", {
+        p_code: code,
+      } satisfies Fn<"join_with_code">),
     createBusiness: (name, ownerName, replyToEmail) =>
-      rpc<string>('create_business', { p_name: name, p_owner_name: ownerName, p_reply_to_email: replyToEmail } satisfies Fn<'create_business'>),
+      rpc<string>("create_business", {
+        p_name: name,
+        p_owner_name: ownerName,
+        p_reply_to_email: replyToEmail,
+      } satisfies Fn<"create_business">),
     addSampleInvoices: (businessId) =>
-      rpc<{ invoices: number; drafts: number }>('add_sample_invoices', { p_business_id: businessId } satisfies Fn<'add_sample_invoices'>),
+      rpc<{ invoices: number; drafts: number }>("add_sample_invoices", {
+        p_business_id: businessId,
+      } satisfies Fn<"add_sample_invoices">),
     recordPromise: (invoiceId, promisedOn, note) =>
-      rpc<{ promised_on: string; drafts_cancelled: number }>('record_promise', {
+      rpc<{ promised_on: string; drafts_cancelled: number }>("record_promise", {
         p_invoice_id: invoiceId,
         p_promised_on: promisedOn,
         ...(note ? { p_note: note } : {}),
-      } satisfies Fn<'record_promise'>),
-    clearPromise: (invoiceId) => rpc<void>('clear_promise', { p_invoice_id: invoiceId } satisfies Fn<'clear_promise'>),
+      } satisfies Fn<"record_promise">),
+    clearPromise: (invoiceId) =>
+      rpc<void>("clear_promise", {
+        p_invoice_id: invoiceId,
+      } satisfies Fn<"clear_promise">),
     async presets(businessId) {
       await ensureSession();
       return check(
-        await client.from('tone_presets').select('id, name, tone, note, client_group').eq('business_id', businessId).order('name'),
+        await client
+          .from("tone_presets")
+          .select("id, name, tone, note, client_group")
+          .eq("business_id", businessId)
+          .order("name"),
       ) as TonePreset[];
     },
     savePreset: (businessId, preset) =>
-      rpc<string>('save_preset', {
+      rpc<string>("save_preset", {
         p_business_id: businessId,
         p_name: preset.name,
         p_tone: preset.tone,
         ...(preset.note ? { p_note: preset.note } : {}),
         ...(preset.client_group ? { p_client_group: preset.client_group } : {}),
-      } satisfies Fn<'save_preset'>),
-    deletePreset: (presetId) => rpc<void>('delete_preset', { p_preset_id: presetId } satisfies Fn<'delete_preset'>),
-    applyPreset: (presetId, clientIds) => rpc<number>('apply_preset', { p_preset_id: presetId, p_client_ids: clientIds } satisfies Fn<'apply_preset'>),
+      } satisfies Fn<"save_preset">),
+    deletePreset: (presetId) =>
+      rpc<void>("delete_preset", {
+        p_preset_id: presetId,
+      } satisfies Fn<"delete_preset">),
+    applyPreset: (presetId, clientIds) =>
+      rpc<number>("apply_preset", {
+        p_preset_id: presetId,
+        p_client_ids: clientIds,
+      } satisfies Fn<"apply_preset">),
     async recordCounts(businessId) {
       await ensureSession();
-      const names = ['clients', 'invoices', 'reminder_drafts', 'imports', 'activity_log', 'attention_items', 'memberships'] as const;
-      const counts = await Promise.all(names.map((name) => tables.count(name, businessId)));
+      const names = [
+        "clients",
+        "invoices",
+        "reminder_drafts",
+        "imports",
+        "activity_log",
+        "attention_items",
+        "memberships",
+      ] as const;
+      const counts = await Promise.all(
+        names.map((name) => tables.count(name, businessId)),
+      );
       return Object.fromEntries(names.map((name, i) => [name, counts[i] ?? 0]));
     },
   };

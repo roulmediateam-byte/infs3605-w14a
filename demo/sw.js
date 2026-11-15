@@ -1,9 +1,9 @@
 // Generated at build time. Caches the app shell only (TRD, Web app): never API responses or business data.
 // Each build (the site root and /demo/) shares the origin's cache storage, so each keeps to caches named for its
 // own path, reads only its own cache, and on update deletes only its own older caches.
-const CACHE = "gpa-shell:/infs3605-w14a/demo/:4c576c2feb53";
+const CACHE = "gpa-shell:/infs3605-w14a/demo/:043361934337";
 const PREFIX = "gpa-shell:/infs3605-w14a/demo/:";
-const SHELL = ["apple-touch-icon.png","assets/Clients-g9VGOKnP.js","assets/Import-CZmwcERL.js","assets/Import-KElbfp29.css","assets/Invoices-Bm-1QicL.js","assets/Log-cHZ7D5Wv.js","assets/Settings-9lQnJs6U.js","assets/csv.worker-CwIKCNb5.js","assets/download-9AAztQDE.js","assets/index-CtTpWkSk.js","assets/index-x9ZaGc6J.css","assets/inter-latin-wght-normal-Dx4kXJAl.woff2","fonts/OFL.txt","icon-192.png","icon-512.png","icon-maskable-512.png","icon.svg","index.html","manifest.webmanifest"];
+const SHELL = ["apple-touch-icon.png","assets/Clients-D4iOW5ix.js","assets/Import-CsV690_m.js","assets/Import-KElbfp29.css","assets/Invoices-DOr8MBo1.js","assets/Log-DIsgZ-HK.js","assets/Settings-Bg2E-GGl.js","assets/csv.worker-CwIKCNb5.js","assets/download-C8sd3io3.js","assets/index-BFzBd09m.js","assets/index-D1wve4Li.css","assets/inter-latin-wght-normal-Dx4kXJAl.woff2","fonts/OFL.txt","icon-192.png","icon-512.png","icon-maskable-512.png","icon.svg","index.html","manifest.webmanifest"];
 const SUB_APPS = [];
 const scope = new URL(self.registration.scope);
 
